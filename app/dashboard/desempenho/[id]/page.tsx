@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -10,22 +10,49 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Progress } from "@/components/ui/progress"
 import { ArrowLeft, Calendar, User, ClipboardList, Activity, LineChart, Edit, Download } from "lucide-react"
-import { avaliacoesMock } from "@/lib/avaliacoes-mock"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { avaliacoesService } from "@/services/api"
+import { AvaliacaoFrontend } from "@/types"
 
 export default function AvaliacaoDetalhesPage() {
   const params = useParams()
   const router = useRouter()
   const id = params.id as string
-  const avaliacao = avaliacoesMock.find((a) => a.id === id)
-
+  const [avaliacao, setAvaliacao] = useState<AvaliacaoFrontend | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState("")
   const [activeTab, setActiveTab] = useState("detalhes")
+  
+  useEffect(() => {
+    const carregarAvaliacao = async () => {
+      setIsLoading(true)
+      try {
+        const data = await avaliacoesService.obterFormatoFrontend(id)
+        setAvaliacao(data)
+      } catch (error) {
+        console.error("Erro ao carregar avaliação:", error)
+        setError("Não foi possível carregar a avaliação solicitada.")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    
+    carregarAvaliacao()
+  }, [id])
 
-  if (!avaliacao) {
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[50vh]">
+        <h2 className="text-xl font-medium">Carregando avaliação...</h2>
+      </div>
+    )
+  }
+
+  if (error || !avaliacao) {
     return (
       <div className="flex flex-col items-center justify-center h-[50vh]">
         <h2 className="text-2xl font-bold">Avaliação não encontrada</h2>
-        <p className="text-muted-foreground mb-4">A avaliação que você está procurando não existe.</p>
+        <p className="text-muted-foreground mb-4">A avaliação que você está procurando não existe ou houve um erro ao carregá-la.</p>
         <Button onClick={() => router.push("/dashboard/desempenho")}>Voltar para lista de avaliações</Button>
       </div>
     )
@@ -40,17 +67,17 @@ export default function AvaliacaoDetalhesPage() {
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
-          <h1 className="text-3xl font-bold tracking-tight">Avaliação {avaliacao.tipo}</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Avaliação {avaliacao.type}</h1>
           <Badge
             className={`ml-2 ${
-              avaliacao.tipo === "Física"
+              avaliacao.type === "Física"
                 ? "bg-blue-500"
-                : avaliacao.tipo === "Técnica"
+                : avaliacao.type === "Técnica"
                   ? "bg-green-500"
                   : "bg-purple-500"
             }`}
           >
-            {avaliacao.tipo}
+            {avaliacao.type}
           </Badge>
         </div>
         <div className="flex gap-2">
@@ -76,12 +103,12 @@ export default function AvaliacaoDetalhesPage() {
           <CardContent className="space-y-4">
             <div className="flex items-center gap-4">
               <Avatar className="h-16 w-16 border">
-                <AvatarImage src={avaliacao.atleta.foto} alt={avaliacao.atleta.nome} />
-                <AvatarFallback className="text-xl">{avaliacao.atleta.nome.charAt(0)}</AvatarFallback>
+                <AvatarImage src={avaliacao.athlete.photo} alt={avaliacao.athlete.name} />
+                <AvatarFallback className="text-xl">{avaliacao.athlete.name.charAt(0)}</AvatarFallback>
               </Avatar>
               <div>
-                <h2 className="text-xl font-bold">{avaliacao.atleta.nome}</h2>
-                <p className="text-sm text-muted-foreground">{avaliacao.modalidade}</p>
+                <h2 className="text-xl font-bold">{avaliacao.athlete.name}</h2>
+                <p className="text-sm text-muted-foreground">{avaliacao.modality}</p>
               </div>
             </div>
 
@@ -90,21 +117,21 @@ export default function AvaliacaoDetalhesPage() {
             <div className="space-y-2">
               <div className="flex items-center">
                 <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
-                <span className="text-sm">Data: {avaliacao.data}</span>
+                <span className="text-sm">Data: {avaliacao.date}</span>
               </div>
               <div className="flex items-center">
                 <User className="h-4 w-4 mr-2 text-muted-foreground" />
-                <span className="text-sm">Responsável: {avaliacao.responsavel}</span>
+                <span className="text-sm">Responsável: {avaliacao.responsible}</span>
               </div>
               <div className="flex items-center">
                 <ClipboardList className="h-4 w-4 mr-2 text-muted-foreground" />
-                <span className="text-sm">Tipo: {avaliacao.tipo}</span>
+                <span className="text-sm">Tipo: {avaliacao.type}</span>
               </div>
               <div className="flex items-center">
                 <Activity className="h-4 w-4 mr-2 text-muted-foreground" />
                 <span className="text-sm">
-                  Indicadores: {avaliacao.indicadores?.length || 0} indicador
-                  {avaliacao.indicadores?.length !== 1 ? "es" : ""}
+                  Indicadores: {avaliacao.indicators?.length || 0} indicador
+                  {avaliacao.indicators?.length !== 1 ? "es" : ""}
                 </span>
               </div>
             </div>
@@ -114,13 +141,13 @@ export default function AvaliacaoDetalhesPage() {
             <div>
               <h3 className="font-medium mb-2">Observações</h3>
               <p className="text-sm text-muted-foreground">
-                {avaliacao.observacoes ||
+                {avaliacao.observations ||
                   "Atleta apresentou bom desempenho nos testes realizados, com evolução significativa em relação à avaliação anterior."}
               </p>
             </div>
 
             <div className="pt-2">
-              <Link href={`/dashboard/atletas/${avaliacao.atleta.id}`}>
+              <Link href={`/dashboard/atletas/${avaliacao.athlete.id}`}>
                 <Button variant="outline" className="w-full">
                   Ver Perfil do Atleta
                 </Button>
@@ -145,35 +172,35 @@ export default function AvaliacaoDetalhesPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-6">
-                    {avaliacao.indicadores ? (
-                      avaliacao.indicadores.map((indicador, index) => (
+                    {avaliacao.indicators && avaliacao.indicators.length > 0 ? (
+                      avaliacao.indicators.map((indicador, index) => (
                         <div key={index} className="space-y-2">
                           <div className="flex items-center justify-between">
                             <div>
-                              <h4 className="font-medium">{indicador.nome}</h4>
+                              <h4 className="font-medium">{indicador.name}</h4>
                               <p className="text-xs text-muted-foreground">
-                                {indicador.descricao || "Medição padrão conforme protocolo do CFO"}
+                                {indicador.description || "Medição padrão conforme protocolo do CFO"}
                               </p>
                             </div>
                             <div className="text-right">
                               <span className="text-lg font-bold">
-                                {indicador.valor}
-                                {indicador.unidade}
+                                {indicador.value}
+                                {indicador.unit}
                               </span>
-                              {indicador.referencia && (
+                              {indicador.reference && (
                                 <p className="text-xs text-muted-foreground">
-                                  Referência: {indicador.referencia}
-                                  {indicador.unidade}
+                                  Referência: {indicador.reference}
+                                  {indicador.unit}
                                 </p>
                               )}
                             </div>
                           </div>
                           <Progress
-                            value={indicador.percentual || (indicador.valor / (indicador.referencia || 100)) * 100}
+                            value={indicador.percentage || (Number(indicador.value) / (Number(indicador.reference) || 100)) * 100}
                             className="h-2"
                           />
-                          {indicador.observacao && (
-                            <p className="text-xs text-muted-foreground mt-1">{indicador.observacao}</p>
+                          {indicador.observation && (
+                            <p className="text-xs text-muted-foreground mt-1">{indicador.observation}</p>
                           )}
                         </div>
                       ))
@@ -243,7 +270,7 @@ export default function AvaliacaoDetalhesPage() {
                 </CardContent>
               </Card>
 
-              {avaliacao.tipo === "Médica" && (
+              {avaliacao.type === "Médica" && (
                 <Card>
                   <CardHeader>
                     <CardTitle>Exames Realizados</CardTitle>
@@ -253,7 +280,7 @@ export default function AvaliacaoDetalhesPage() {
                     <div className="space-y-4">
                       <div className="p-4 border rounded-md">
                         <h4 className="font-medium">Exame Cardiológico</h4>
-                        <p className="text-sm text-muted-foreground mt-1">Realizado em: {avaliacao.data}</p>
+                        <p className="text-sm text-muted-foreground mt-1">Realizado em: {avaliacao.date}</p>
                         <p className="text-sm mt-2">
                           Resultado: <Badge className="bg-green-500">Normal</Badge>
                         </p>
@@ -265,7 +292,7 @@ export default function AvaliacaoDetalhesPage() {
 
                       <div className="p-4 border rounded-md">
                         <h4 className="font-medium">Exame Ortopédico</h4>
-                        <p className="text-sm text-muted-foreground mt-1">Realizado em: {avaliacao.data}</p>
+                        <p className="text-sm text-muted-foreground mt-1">Realizado em: {avaliacao.date}</p>
                         <p className="text-sm mt-2">
                           Resultado: <Badge className="bg-yellow-500">Atenção</Badge>
                         </p>
@@ -306,10 +333,10 @@ export default function AvaliacaoDetalhesPage() {
                       return (
                         <div key={index} className="p-4 border rounded-md">
                           <div className="flex justify-between items-center">
-                            <h4 className="font-medium">Avaliação {avaliacao.tipo}</h4>
+                            <h4 className="font-medium">Avaliação {avaliacao.type}</h4>
                             <Badge variant="outline">{formattedDate}</Badge>
                           </div>
-                          <p className="text-sm text-muted-foreground mt-1">Responsável: {avaliacao.responsavel}</p>
+                          <p className="text-sm text-muted-foreground mt-1">Responsável: {avaliacao.responsible}</p>
                           <div className="mt-3 space-y-2">
                             <div className="flex justify-between text-sm">
                               <span>Resistência</span>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,288 +9,451 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Calendar, Plus, Search, LineChart, Activity, ClipboardList } from "lucide-react"
-import { atletasMock } from "@/lib/atletas-mock"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { avaliacoesMock } from "@/lib/avaliacoes-mock"
+import { avaliacoesService, atletasService } from "@/services/api"
+import { AvaliacaoFrontend, Atleta, ApiResponse } from "@/types"
 
 export default function DesempenhoPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [tipoFiltro, setTipoFiltro] = useState("todos")
   const [modalidadeFiltro, setModalidadeFiltro] = useState("todas")
   const [periodoFiltro, setPeriodoFiltro] = useState("todos")
+  const [avaliacoes, setAvaliacoes] = useState<AvaliacaoFrontend[]>([])
+  const [atletas, setAtletas] = useState<Atleta[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState("")
+
+  useEffect(() => {
+    const carregarDados = async () => {
+      setIsLoading(true)
+      try {
+        // Carregar avaliações
+        const avaliacoesData = await avaliacoesService.listarFormatoFrontend();
+        setAvaliacoes(avaliacoesData);
+
+        // Carregar atletas
+        const atletasResponse = await atletasService.listar();
+        if (atletasResponse && atletasResponse.data) {
+          setAtletas(atletasResponse.data);
+        }
+      } catch (error) {
+        console.error("Erro ao carregar dados:", error);
+        setError("Ocorreu um erro ao carregar os dados. Tente novamente mais tarde.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    carregarDados();
+  }, []);
 
   // Filtrar avaliações
-  const avaliacoesFiltradas = avaliacoesMock.filter((avaliacao) => {
+  const avaliacoesFiltradas = avaliacoes.filter((avaliacao) => {
     const matchesSearch =
-      avaliacao.atleta.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      avaliacao.tipo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      avaliacao.responsavel.toLowerCase().includes(searchTerm.toLowerCase())
+      avaliacao.athlete.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      avaliacao.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      avaliacao.responsible.toLowerCase().includes(searchTerm.toLowerCase())
 
-    const matchesTipo = tipoFiltro === "todos" || avaliacao.tipo === tipoFiltro
-    const matchesModalidade = modalidadeFiltro === "todas" || avaliacao.modalidade === modalidadeFiltro
+    const matchesTipo = tipoFiltro === "todos" || avaliacao.type === tipoFiltro
+    const matchesModalidade = modalidadeFiltro === "todas" || avaliacao.modality === modalidadeFiltro
 
     // Filtro de período
     let matchesPeriodo = true
-    const dataAvaliacao = new Date(avaliacao.data.split("/").reverse().join("-"))
+    const dataAvaliacao = new Date(avaliacao.date.split("/").reverse().join("-"))
     const hoje = new Date()
+    const umMesAtras = new Date()
+    umMesAtras.setMonth(hoje.getMonth() - 1)
+    const treseMesesAtras = new Date()
+    treseMesesAtras.setMonth(hoje.getMonth() - 3)
+    const seiseMesesAtras = new Date()
+    seiseMesesAtras.setMonth(hoje.getMonth() - 6)
+    const umAnoAtras = new Date()
+    umAnoAtras.setFullYear(hoje.getFullYear() - 1)
 
-    if (periodoFiltro === "ultimos7dias") {
-      const seteDiasAtras = new Date()
-      seteDiasAtras.setDate(hoje.getDate() - 7)
-      matchesPeriodo = dataAvaliacao >= seteDiasAtras
-    } else if (periodoFiltro === "ultimos30dias") {
-      const trintaDiasAtras = new Date()
-      trintaDiasAtras.setDate(hoje.getDate() - 30)
-      matchesPeriodo = dataAvaliacao >= trintaDiasAtras
-    } else if (periodoFiltro === "ultimos90dias") {
-      const noventaDiasAtras = new Date()
-      noventaDiasAtras.setDate(hoje.getDate() - 90)
-      matchesPeriodo = dataAvaliacao >= noventaDiasAtras
+    switch (periodoFiltro) {
+      case "ultimos_30_dias":
+        matchesPeriodo = dataAvaliacao >= umMesAtras
+        break
+      case "ultimos_3_meses":
+        matchesPeriodo = dataAvaliacao >= treseMesesAtras
+        break
+      case "ultimos_6_meses":
+        matchesPeriodo = dataAvaliacao >= seiseMesesAtras
+        break
+      case "ultimo_ano":
+        matchesPeriodo = dataAvaliacao >= umAnoAtras
+        break
+      default:
+        matchesPeriodo = true
     }
 
     return matchesSearch && matchesTipo && matchesModalidade && matchesPeriodo
   })
 
-  // Extrair tipos únicos para o filtro
-  const tipos = Array.from(new Set(avaliacoesMock.map((avaliacao) => avaliacao.tipo)))
+  if (isLoading) {
+    return (
+      <div className="container mx-auto py-10">
+        <div className="flex justify-center items-center h-64">
+          <p className="text-lg">Carregando avaliações...</p>
+        </div>
+      </div>
+    )
+  }
 
-  // Extrair modalidades únicas para o filtro
-  const modalidades = Array.from(new Set(avaliacoesMock.map((avaliacao) => avaliacao.modalidade)))
+  if (error) {
+    return (
+      <div className="container mx-auto py-10">
+        <div className="flex justify-center items-center h-64">
+          <p className="text-lg text-red-500">{error}</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div className="container mx-auto py-10">
+      <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Desempenho e Avaliações</h1>
-          <p className="text-muted-foreground">
-            Gerencie avaliações físicas, técnicas e médicas dos atletas do Centro de Formação Olímpica.
-          </p>
+          <h2 className="text-3xl font-bold tracking-tight">Desempenho</h2>
+          <p className="text-muted-foreground">Gerencie e avalie o desempenho dos atletas</p>
         </div>
-        <Link href="/dashboard/desempenho/nova-avaliacao">
-          <Button className="bg-green-700 hover:bg-green-600">
-            <Plus className="mr-2 h-4 w-4" /> Nova Avaliação
-          </Button>
-        </Link>
+        <div className="flex items-center space-x-2">
+          <Link href="/dashboard/desempenho/nova-avaliacao">
+            <Button className="bg-green-700 hover:bg-green-600">
+              <Plus className="mr-2 h-4 w-4" />
+              Nova Avaliação
+            </Button>
+          </Link>
+        </div>
       </div>
 
-      <Tabs defaultValue="avaliacoes" className="space-y-4">
-        <TabsList>
+      <Tabs defaultValue="avaliacoes" className="mt-6">
+        <TabsList className="w-full sm:w-auto">
           <TabsTrigger value="avaliacoes">Avaliações</TabsTrigger>
-          <TabsTrigger value="indicadores">Indicadores</TabsTrigger>
-          <TabsTrigger value="comparativos">Comparativos</TabsTrigger>
-          <TabsTrigger value="relatorios">Relatórios</TabsTrigger>
+          <TabsTrigger value="resumo">Resumo</TabsTrigger>
+          <TabsTrigger value="comparativo">Comparativo</TabsTrigger>
         </TabsList>
 
         <TabsContent value="avaliacoes" className="space-y-4">
-          <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
-            <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Buscar avaliações por atleta, tipo ou responsável..."
-                className="pl-8"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-wrap gap-2 w-full md:w-auto">
-              <Select value={tipoFiltro} onValueChange={setTipoFiltro}>
-                <SelectTrigger className="w-full md:w-[180px]">
-                  <SelectValue placeholder="Tipo de Avaliação" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos os tipos</SelectItem>
-                  {tipos.map((tipo) => (
-                    <SelectItem key={tipo} value={tipo}>
-                      {tipo}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={modalidadeFiltro} onValueChange={setModalidadeFiltro}>
-                <SelectTrigger className="w-full md:w-[180px]">
-                  <SelectValue placeholder="Modalidade" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todas">Todas as modalidades</SelectItem>
-                  {modalidades.map((modalidade) => (
-                    <SelectItem key={modalidade} value={modalidade}>
-                      {modalidade}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={periodoFiltro} onValueChange={setPeriodoFiltro}>
-                <SelectTrigger className="w-full md:w-[180px]">
-                  <SelectValue placeholder="Período" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos os períodos</SelectItem>
-                  <SelectItem value="ultimos7dias">Últimos 7 dias</SelectItem>
-                  <SelectItem value="ultimos30dias">Últimos 30 dias</SelectItem>
-                  <SelectItem value="ultimos90dias">Últimos 90 dias</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {avaliacoesFiltradas.map((avaliacao) => (
-              <Card key={avaliacao.id} className="overflow-hidden hover:shadow-md transition-shadow">
-                <CardContent className="p-0">
-                  <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-10 w-10 border">
-                        <AvatarImage src={avaliacao.atleta.foto} alt={avaliacao.atleta.nome} />
-                        <AvatarFallback>{avaliacao.atleta.nome.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <h3 className="font-semibold">{avaliacao.atleta.nome}</h3>
-                        <p className="text-xs text-muted-foreground">{avaliacao.modalidade}</p>
-                      </div>
-                    </div>
-                    <Badge
-                      className={`${
-                        avaliacao.tipo === "Física"
-                          ? "bg-blue-500"
-                          : avaliacao.tipo === "Técnica"
-                            ? "bg-green-500"
-                            : "bg-purple-500"
-                      }`}
-                    >
-                      {avaliacao.tipo}
-                    </Badge>
+          <Card>
+            <CardHeader>
+              <CardTitle>Filtros</CardTitle>
+              <CardDescription>Filtre as avaliações por diferentes critérios</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <div className="space-y-2">
+                  <label htmlFor="search" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                    Pesquisar
+                  </label>
+                  <div className="relative">
+                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="search"
+                      placeholder="Nome, responsável..."
+                      className="pl-8"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
                   </div>
-                  <div className="p-4">
-                    <div className="space-y-2 mb-4">
-                      <div className="flex items-center text-sm">
-                        <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
-                        <span>{avaliacao.data}</span>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="tipo" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                    Tipo
+                  </label>
+                  <Select value={tipoFiltro} onValueChange={setTipoFiltro}>
+                    <SelectTrigger id="tipo">
+                      <SelectValue placeholder="Selecione o tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos os tipos</SelectItem>
+                      <SelectItem value="Física">Física</SelectItem>
+                      <SelectItem value="Técnica">Técnica</SelectItem>
+                      <SelectItem value="Médica">Médica</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="modalidade" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                    Modalidade
+                  </label>
+                  <Select value={modalidadeFiltro} onValueChange={setModalidadeFiltro}>
+                    <SelectTrigger id="modalidade">
+                      <SelectValue placeholder="Selecione a modalidade" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todas">Todas as modalidades</SelectItem>
+                      {/* Lista única de modalidades das avaliações */}
+                      {Array.from(new Set(avaliacoes.map((a) => a.modality)))
+                        .filter(Boolean)
+                        .sort()
+                        .map((modalidade) => (
+                          <SelectItem key={modalidade} value={modalidade}>
+                            {modalidade}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="periodo" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                    Período
+                  </label>
+                  <Select value={periodoFiltro} onValueChange={setPeriodoFiltro}>
+                    <SelectTrigger id="periodo">
+                      <SelectValue placeholder="Selecione o período" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todo o período</SelectItem>
+                      <SelectItem value="ultimos_30_dias">Últimos 30 dias</SelectItem>
+                      <SelectItem value="ultimos_3_meses">Últimos 3 meses</SelectItem>
+                      <SelectItem value="ultimos_6_meses">Últimos 6 meses</SelectItem>
+                      <SelectItem value="ultimo_ano">Último ano</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {avaliacoesFiltradas.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center h-32 p-6">
+                <p className="text-center text-muted-foreground">Nenhuma avaliação encontrada com os filtros selecionados.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {avaliacoesFiltradas.map((avaliacao) => (
+                <Link key={avaliacao.id} href={`/dashboard/desempenho/${avaliacao.id}`}>
+                  <Card className="cursor-pointer transition-all hover:shadow-md">
+                    <CardHeader className="pb-3">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <CardTitle className="text-lg">{avaliacao.type}</CardTitle>
+                          <CardDescription>{avaliacao.date}</CardDescription>
+                        </div>
+                        <Badge
+                          className={`ml-2 ${
+                            avaliacao.type === "Física"
+                              ? "bg-blue-500"
+                              : avaliacao.type === "Técnica"
+                                ? "bg-green-500"
+                                : "bg-purple-500"
+                          }`}
+                        >
+                          {avaliacao.type}
+                        </Badge>
                       </div>
-                      <div className="flex items-center text-sm">
-                        <ClipboardList className="h-4 w-4 mr-2 text-muted-foreground" />
-                        <span>Responsável: {avaliacao.responsavel}</span>
+                    </CardHeader>
+                    <CardContent className="pb-2">
+                      <div className="flex items-center gap-4 mb-4">
+                        <Avatar className="h-10 w-10 border">
+                          <AvatarImage src={avaliacao.athlete.photo || ""} alt={avaliacao.athlete.name} />
+                          <AvatarFallback>{avaliacao.athlete.name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-medium">{avaliacao.athlete.name}</div>
+                          <div className="text-xs text-muted-foreground">{avaliacao.modality}</div>
+                        </div>
                       </div>
-                      {avaliacao.indicadores && avaliacao.indicadores.length > 0 && (
-                        <div className="flex items-center text-sm">
-                          <Activity className="h-4 w-4 mr-2 text-muted-foreground" />
+
+                      <div className="space-y-1 text-sm">
+                        <div className="flex items-center">
+                          <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
+                          <span>{avaliacao.date}</span>
+                        </div>
+                        <div className="flex items-center">
+                          <ClipboardList className="h-4 w-4 mr-2 text-muted-foreground" />
                           <span>
-                            {avaliacao.indicadores.length} indicador{avaliacao.indicadores.length !== 1 ? "es" : ""}
+                            {avaliacao.indicators ? avaliacao.indicators.length : 0} indicador
+                            {!avaliacao.indicators || avaliacao.indicators.length !== 1 ? "es" : ""}
                           </span>
                         </div>
-                      )}
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <Link href={`/dashboard/desempenho/${avaliacao.id}`}>
-                        <Button variant="outline">Ver Detalhes</Button>
-                      </Link>
-                      <Link href={`/dashboard/atletas/${avaliacao.atleta.id}`}>
-                        <Button variant="ghost" size="sm">
-                          Perfil do Atleta
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          {avaliacoesFiltradas.length === 0 && (
-            <div className="text-center p-12 border rounded-lg">
-              <h3 className="text-lg font-medium">Nenhuma avaliação encontrada</h3>
-              <p className="text-muted-foreground mt-2">
-                Não foram encontradas avaliações com os critérios de busca informados.
-              </p>
-              <Link href="/dashboard/desempenho/nova-avaliacao">
-                <Button className="mt-4 bg-green-700 hover:bg-green-600">
-                  <Plus className="mr-2 h-4 w-4" /> Registrar Nova Avaliação
-                </Button>
-              </Link>
+                        <div className="flex items-center">
+                          <Activity className="h-4 w-4 mr-2 text-muted-foreground" />
+                          <span>Responsável: {avaliacao.responsible}</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
             </div>
           )}
         </TabsContent>
 
-        <TabsContent value="indicadores" className="space-y-4">
+        <TabsContent value="resumo" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total de Avaliações</CardTitle>
+                <ClipboardList className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{avaliacoes.length}</div>
+                <p className="text-xs text-muted-foreground">
+                  {avaliacoes.filter(a => {
+                    const data = new Date(a.date.split('/').reverse().join('-'));
+                    const umMesAtras = new Date();
+                    umMesAtras.setMonth(umMesAtras.getMonth() - 1);
+                    return data >= umMesAtras;
+                  }).length} nos últimos 30 dias
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Modalidades Avaliadas</CardTitle>
+                <Activity className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {new Set(avaliacoes.map(a => a.modality).filter(Boolean)).size}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  De um total de {new Set(atletas.flatMap(a => a.modalities || [])).size} modalidades
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Atletas Avaliados</CardTitle>
+                <LineChart className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {new Set(avaliacoes.map(a => a.athlete.id)).size}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  De um total de {atletas.length} atletas registrados
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card className="col-span-2 md:col-span-1">
+              <CardHeader>
+                <CardTitle>Tipo de Avaliações</CardTitle>
+                <CardDescription>Distribuição de avaliações por tipo</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {["Física", "Técnica", "Médica"].map(tipo => {
+                    const count = avaliacoes.filter(a => a.type === tipo).length;
+                    const percentage = avaliacoes.length ? Math.round((count / avaliacoes.length) * 100) : 0;
+                    
+                    return (
+                      <div key={tipo} className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className={`h-3 w-3 rounded-full ${
+                              tipo === "Física" ? "bg-blue-500" : 
+                              tipo === "Técnica" ? "bg-green-500" : "bg-purple-500"
+                            }`}></div>
+                            <span>{tipo}</span>
+                          </div>
+                          <span>{count} ({percentage}%)</span>
+                        </div>
+                        <div className="h-2 w-full rounded-full bg-gray-100">
+                          <div 
+                            className={`h-2 rounded-full ${
+                              tipo === "Física" ? "bg-blue-500" : 
+                              tipo === "Técnica" ? "bg-green-500" : "bg-purple-500"
+                            }`}
+                            style={{ width: `${percentage}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="col-span-2 md:col-span-1">
+              <CardHeader>
+                <CardTitle>Avaliações Recentes</CardTitle>
+                <CardDescription>Últimas avaliações realizadas</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {avaliacoes
+                    .sort((a, b) => {
+                      const dateA = new Date(a.date.split('/').reverse().join('-'));
+                      const dateB = new Date(b.date.split('/').reverse().join('-'));
+                      return dateB.getTime() - dateA.getTime();
+                    })
+                    .slice(0, 5)
+                    .map(avaliacao => (
+                      <div key={avaliacao.id} className="flex items-center gap-4">
+                        <Avatar className="h-10 w-10 border">
+                          <AvatarImage src={avaliacao.athlete.photo || ""} alt={avaliacao.athlete.name} />
+                          <AvatarFallback>{avaliacao.athlete.name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <div className="font-medium">{avaliacao.athlete.name}</div>
+                            <Badge
+                              className={`${
+                                avaliacao.type === "Física"
+                                  ? "bg-blue-500"
+                                  : avaliacao.type === "Técnica"
+                                    ? "bg-green-500"
+                                    : "bg-purple-500"
+                              }`}
+                            >
+                              {avaliacao.type}
+                            </Badge>
+                          </div>
+                          <div className="text-xs text-muted-foreground">{avaliacao.date}</div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
           <Card>
             <CardHeader>
-              <CardTitle>Indicadores de Desempenho</CardTitle>
-              <CardDescription>Visualize e compare indicadores de desempenho dos atletas</CardDescription>
+              <CardTitle>Desempenho por Atleta</CardTitle>
+              <CardDescription>Visão geral de atletas com avaliações</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-col md:flex-row gap-4 mb-6">
-                <Select defaultValue="resistencia">
-                  <SelectTrigger className="w-full md:w-[200px]">
-                    <SelectValue placeholder="Selecione o indicador" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="resistencia">Resistência</SelectItem>
-                    <SelectItem value="forca">Força</SelectItem>
-                    <SelectItem value="velocidade">Velocidade</SelectItem>
-                    <SelectItem value="flexibilidade">Flexibilidade</SelectItem>
-                    <SelectItem value="tecnica">Técnica</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select defaultValue="natacao">
-                  <SelectTrigger className="w-full md:w-[200px]">
-                    <SelectValue placeholder="Selecione a modalidade" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="natacao">Natação</SelectItem>
-                    <SelectItem value="atletismo">Atletismo</SelectItem>
-                    <SelectItem value="ginastica">Ginástica</SelectItem>
-                    <SelectItem value="judo">Judô</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select defaultValue="ultimos6meses">
-                  <SelectTrigger className="w-full md:w-[200px]">
-                    <SelectValue placeholder="Selecione o período" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ultimos3meses">Últimos 3 meses</SelectItem>
-                    <SelectItem value="ultimos6meses">Últimos 6 meses</SelectItem>
-                    <SelectItem value="ultimo1ano">Último ano</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="h-80 w-full border rounded-md p-4 flex items-center justify-center">
-                <div className="text-center">
-                  <LineChart className="h-16 w-16 mx-auto text-muted-foreground" />
-                  <p className="mt-2 text-muted-foreground">
-                    Gráfico de evolução do indicador de Resistência para atletas de Natação nos últimos 6 meses
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-6 space-y-4">
+              <div className="space-y-4">
                 <h3 className="text-lg font-medium">Atletas com melhor desempenho</h3>
                 <div className="space-y-2">
-                  {atletasMock.slice(0, 5).map((atleta, index) => (
+                  {atletas.slice(0, 5).map((atleta, index) => (
                     <div key={atleta.id} className="flex items-center justify-between p-3 border rounded-md">
                       <div className="flex items-center gap-3">
                         <div className="flex items-center justify-center h-8 w-8 rounded-full bg-gray-100 text-gray-700 font-medium">
                           {index + 1}
                         </div>
-                        <Avatar className="h-10 w-10 border">
-                          <AvatarImage src={atleta.foto} alt={atleta.nome} />
-                          <AvatarFallback>{atleta.nome.charAt(0)}</AvatarFallback>
-                        </Avatar>
                         <div>
-                          <h4 className="font-medium">{atleta.nome}</h4>
-                          <p className="text-xs text-muted-foreground">
-                            {atleta.modalidades[0]} • {atleta.categoria}
-                          </p>
+                          <div className="font-medium">{atleta.user?.name || "Atleta"}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {(atleta.modalities && atleta.modalities.length > 0)
+                              ? `${atleta.modalities.length} modalidade${atleta.modalities.length !== 1 ? 's' : ''}`
+                              : 'Sem modalidade'}
+                          </div>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-bold text-lg">{85 - index * 3}%</div>
+                        <div className="font-medium">
+                          {avaliacoes.filter(a => a.athlete.id === atleta.id).length} avaliações
+                        </div>
                         <div className="text-xs text-muted-foreground">
-                          {index === 0 ? "+5%" : index === 1 ? "+3%" : index === 2 ? "+2%" : "+1%"}
+                          Última: {
+                            avaliacoes
+                              .filter(a => a.athlete.id === atleta.id)
+                              .sort((a, b) => {
+                                const dateA = new Date(a.date.split('/').reverse().join('-'));
+                                const dateB = new Date(b.date.split('/').reverse().join('-'));
+                                return dateB.getTime() - dateA.getTime();
+                              })[0]?.date || 'N/A'
+                          }
                         </div>
                       </div>
                     </div>
@@ -301,290 +464,117 @@ export default function DesempenhoPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="comparativos" className="space-y-4">
+        <TabsContent value="comparativo" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Comparativo por Equipe</CardTitle>
-              <CardDescription>Compare o desempenho entre diferentes equipes e modalidades</CardDescription>
+              <CardTitle>Comparação de Desempenho</CardTitle>
+              <CardDescription>Compare o desempenho entre atletas e modalidades</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="flex flex-col md:flex-row gap-4 mb-6">
-                <Select defaultValue="natacao">
-                  <SelectTrigger className="w-full md:w-[200px]">
-                    <SelectValue placeholder="Selecione a modalidade" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="natacao">Natação</SelectItem>
-                    <SelectItem value="atletismo">Atletismo</SelectItem>
-                    <SelectItem value="ginastica">Ginástica</SelectItem>
-                    <SelectItem value="judo">Judô</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select defaultValue="sub17">
-                  <SelectTrigger className="w-full md:w-[200px]">
-                    <SelectValue placeholder="Selecione a categoria" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="sub15">Sub-15</SelectItem>
-                    <SelectItem value="sub17">Sub-17</SelectItem>
-                    <SelectItem value="sub20">Sub-20</SelectItem>
-                    <SelectItem value="adulto">Adulto</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select defaultValue="fisico">
-                  <SelectTrigger className="w-full md:w-[200px]">
-                    <SelectValue placeholder="Tipo de avaliação" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="fisico">Físico</SelectItem>
-                    <SelectItem value="tecnico">Técnico</SelectItem>
-                    <SelectItem value="medico">Médico</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="border rounded-md p-4">
-                  <h3 className="font-medium mb-4">Time A vs Time B</h3>
-                  <div className="h-60 w-full flex items-center justify-center">
-                    <div className="text-center">
-                      <Activity className="h-12 w-12 mx-auto text-muted-foreground" />
-                      <p className="mt-2 text-muted-foreground">Gráfico comparativo entre times</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border rounded-md p-4">
-                  <h3 className="font-medium mb-4">Evolução por Indicador</h3>
-                  <div className="h-60 w-full flex items-center justify-center">
-                    <div className="text-center">
-                      <LineChart className="h-12 w-12 mx-auto text-muted-foreground" />
-                      <p className="mt-2 text-muted-foreground">Gráfico de evolução por indicador</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-6">
-                <h3 className="text-lg font-medium mb-4">Comparativo de Equipes</h3>
-                <div className="space-y-4">
-                  <div className="p-4 border rounded-md">
-                    <div className="flex justify-between items-center mb-2">
-                      <h4 className="font-medium">Time A - Natação Sub-17</h4>
-                      <Badge className="bg-blue-500">Média: 82%</Badge>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-sm">
-                          <span>Resistência</span>
-                          <span>85%</span>
-                        </div>
-                        <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-blue-500 rounded-full" style={{ width: "85%" }}></div>
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-sm">
-                          <span>Força</span>
-                          <span>78%</span>
-                        </div>
-                        <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-blue-500 rounded-full" style={{ width: "78%" }}></div>
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-sm">
-                          <span>Técnica</span>
-                          <span>83%</span>
-                        </div>
-                        <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-blue-500 rounded-full" style={{ width: "83%" }}></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-4 border rounded-md">
-                    <div className="flex justify-between items-center mb-2">
-                      <h4 className="font-medium">Time B - Natação Sub-17</h4>
-                      <Badge className="bg-green-500">Média: 79%</Badge>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-sm">
-                          <span>Resistência</span>
-                          <span>80%</span>
-                        </div>
-                        <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-green-500 rounded-full" style={{ width: "80%" }}></div>
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-sm">
-                          <span>Força</span>
-                          <span>82%</span>
-                        </div>
-                        <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-green-500 rounded-full" style={{ width: "82%" }}></div>
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-sm">
-                          <span>Técnica</span>
-                          <span>75%</span>
-                        </div>
-                        <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-green-500 rounded-full" style={{ width: "75%" }}></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+            <CardContent className="h-96 flex flex-col items-center justify-center text-center">
+              <LineChart className="h-16 w-16 mb-4 text-muted-foreground" />
+              <h3 className="text-lg font-medium mb-2">Os gráficos comparativos estarão disponíveis em breve</h3>
+              <p className="text-muted-foreground max-w-md">
+                Estamos trabalhando para disponibilizar visualizações comparativas do desempenho dos atletas nas
+                próximas atualizações.
+              </p>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        <TabsContent value="relatorios" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Relatórios de Desempenho</CardTitle>
-              <CardDescription>Gere relatórios personalizados de desempenho</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Tipo de Relatório</label>
-                    <Select defaultValue="individual">
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o tipo" />
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Evolução por Modalidade</CardTitle>
+                <CardDescription>Acompanhe a evolução de indicadores por modalidade esportiva</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex space-x-4">
+                    <Select defaultValue="todas">
+                      <SelectTrigger id="modalidade-comp">
+                        <SelectValue placeholder="Selecione a modalidade" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="individual">Individual</SelectItem>
-                        <SelectItem value="equipe">Por Equipe</SelectItem>
-                        <SelectItem value="modalidade">Por Modalidade</SelectItem>
-                        <SelectItem value="categoria">Por Categoria</SelectItem>
+                        <SelectItem value="todas">Todas as modalidades</SelectItem>
+                        {Array.from(new Set(avaliacoes.map((a) => a.modality)))
+                          .filter(Boolean)
+                          .sort()
+                          .map((modalidade) => (
+                            <SelectItem key={modalidade} value={modalidade}>
+                              {modalidade}
+                            </SelectItem>
+                          ))}
                       </SelectContent>
                     </Select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Período</label>
-                    <Select defaultValue="ultimos3meses">
-                      <SelectTrigger>
+                    <Select defaultValue="todos">
+                      <SelectTrigger id="periodo-comp">
                         <SelectValue placeholder="Selecione o período" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="ultimo1mes">Último mês</SelectItem>
-                        <SelectItem value="ultimos3meses">Últimos 3 meses</SelectItem>
-                        <SelectItem value="ultimos6meses">Últimos 6 meses</SelectItem>
-                        <SelectItem value="ultimo1ano">Último ano</SelectItem>
-                        <SelectItem value="personalizado">Personalizado</SelectItem>
+                        <SelectItem value="todos">Todo o período</SelectItem>
+                        <SelectItem value="ultimos_30_dias">Últimos 30 dias</SelectItem>
+                        <SelectItem value="ultimos_3_meses">Últimos 3 meses</SelectItem>
+                        <SelectItem value="ultimos_6_meses">Últimos 6 meses</SelectItem>
+                        <SelectItem value="ultimo_ano">Último ano</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Tipo de Avaliação</label>
+                  <div className="h-64 border rounded-md flex items-center justify-center">
+                    <div className="text-center text-muted-foreground">
+                      <Activity className="h-12 w-12 mx-auto mb-2" />
+                      <p>Os dados de evolução estarão disponíveis em breve</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Comparativo entre Atletas</CardTitle>
+                <CardDescription>Compare o desempenho entre diferentes atletas</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex space-x-4">
                     <Select defaultValue="todos">
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o tipo" />
+                      <SelectTrigger id="atleta-1">
+                        <SelectValue placeholder="Selecione o primeiro atleta" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="todos">Todos</SelectItem>
-                        <SelectItem value="fisica">Física</SelectItem>
-                        <SelectItem value="tecnica">Técnica</SelectItem>
-                        <SelectItem value="medica">Médica</SelectItem>
+                        <SelectItem value="todos">Todos os atletas</SelectItem>
+                        {atletas.slice(0, 5).map((atleta) => (
+                          <SelectItem key={atleta.id} value={atleta.id}>
+                            {atleta.user?.name || "Atleta"}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select defaultValue="todos">
+                      <SelectTrigger id="atleta-2">
+                        <SelectValue placeholder="Selecione o segundo atleta" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="todos">Todos os atletas</SelectItem>
+                        {atletas.slice(0, 5).map((atleta) => (
+                          <SelectItem key={atleta.id} value={atleta.id}>
+                            {atleta.user?.name || "Atleta"}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
-                </div>
 
-                <div>
-                  <label className="block text-sm font-medium mb-1">Atleta</label>
-                  <Select defaultValue="todos">
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o atleta" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="todos">Todos os atletas</SelectItem>
-                      {atletasMock.slice(0, 5).map((atleta) => (
-                        <SelectItem key={atleta.id} value={atleta.id}>
-                          {atleta.nome}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-1">Indicadores</label>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                    <div className="flex items-center space-x-2">
-                      <input type="checkbox" id="resistencia" className="rounded border-gray-300" defaultChecked />
-                      <label htmlFor="resistencia">Resistência</label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <input type="checkbox" id="forca" className="rounded border-gray-300" defaultChecked />
-                      <label htmlFor="forca">Força</label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <input type="checkbox" id="velocidade" className="rounded border-gray-300" defaultChecked />
-                      <label htmlFor="velocidade">Velocidade</label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <input type="checkbox" id="flexibilidade" className="rounded border-gray-300" defaultChecked />
-                      <label htmlFor="flexibilidade">Flexibilidade</label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <input type="checkbox" id="tecnica" className="rounded border-gray-300" defaultChecked />
-                      <label htmlFor="tecnica">Técnica</label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <input type="checkbox" id="imc" className="rounded border-gray-300" />
-                      <label htmlFor="imc">IMC</label>
+                  <div className="h-64 border rounded-md flex items-center justify-center">
+                    <div className="text-center text-muted-foreground">
+                      <Activity className="h-12 w-12 mx-auto mb-2" />
+                      <p>Os dados comparativos estarão disponíveis em breve</p>
                     </div>
                   </div>
                 </div>
-
-                <div className="flex flex-col md:flex-row gap-4">
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium mb-1">Formato do Relatório</label>
-                    <Select defaultValue="pdf">
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o formato" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pdf">PDF</SelectItem>
-                        <SelectItem value="excel">Excel</SelectItem>
-                        <SelectItem value="csv">CSV</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium mb-1">Incluir Gráficos</label>
-                    <Select defaultValue="sim">
-                      <SelectTrigger>
-                        <SelectValue placeholder="Incluir gráficos?" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="sim">Sim</SelectItem>
-                        <SelectItem value="nao">Não</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline">Visualizar</Button>
-                  <Button className="bg-green-700 hover:bg-green-600">Gerar Relatório</Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
