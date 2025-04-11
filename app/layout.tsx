@@ -4,6 +4,7 @@ import "./globals.css";
 import Providers from "./providers";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
+import Navbar from "@/components/navbar";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -33,7 +34,10 @@ export default function RootLayout({
           <Providers>
             <div className="relative min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
               <div className="absolute inset-0 bg-[url('/images/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))] dark:bg-[url('/images/grid-dark.svg')]" />
-              <div className="relative">{children}</div>
+              <div className="relative">
+                <Navbar />
+                {children}
+              </div>
             </div>
             <Toaster />
           </Providers>

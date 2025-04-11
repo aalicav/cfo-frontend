@@ -20,6 +20,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import NotificationsDropdown from "@/components/notifications-dropdown";
+import { ModeToggle } from "@/components/mode-toggle";
 
 interface ClientLayoutProps {
   children: React.ReactNode;
@@ -65,7 +67,7 @@ export function ClientLayout({ children }: ClientLayoutProps) {
 
     // Layout completo para usuários autenticados
     return (
-      <div className="flex min-h-screen bg-gray-50">
+      <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
         {/* Sidebar para desktop */}
         <div className="hidden md:block">
           <SidebarProvider defaultOpen={!isSidebarCollapsed}>
@@ -79,24 +81,34 @@ export function ClientLayout({ children }: ClientLayoutProps) {
         {/* Conteúdo principal */}
         <SidebarInset>
           {/* Header */}
-          <header className="sticky top-0 z-50 flex h-16 items-center border-b bg-white px-4 md:px-6">
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="md:hidden">
-                  <Menu className="h-5 w-5" />
-                  <span className="sr-only">Menu</span>
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="w-72 p-0">
-                <ScrollArea className="h-full py-6">
-                  <SidebarProvider defaultOpen>
-                    <DashboardSidebar userRole={userRole} />
-                  </SidebarProvider>
-                </ScrollArea>
-              </SheetContent>
-            </Sheet>
+          <header className="sticky top-0 z-50 flex h-16 items-center justify-between border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 md:px-6">
+            <div className="flex items-center">
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon" className="md:hidden">
+                    <Menu className="h-5 w-5" />
+                    <span className="sr-only">Menu</span>
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="left" className="w-72 p-0">
+                  <ScrollArea className="h-full py-6">
+                    <SidebarProvider defaultOpen>
+                      <DashboardSidebar userRole={userRole} />
+                    </SidebarProvider>
+                  </ScrollArea>
+                </SheetContent>
+              </Sheet>
+              
+              <div className="hidden md:block ml-4">
+                <Link href="/dashboard" className="flex items-center">
+                  <span className="font-bold text-xl">CFO</span>
+                </Link>
+              </div>
+            </div>
 
-            <div className="flex flex-1 items-center justify-end space-x-4">
+            <div className="flex items-center space-x-2">
+              <NotificationsDropdown />
+              <ModeToggle />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
