@@ -5,10 +5,11 @@ import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
 import http from '@/lib/http';
 import { User, RegisterData, ResetPasswordData } from '@/lib/types';
+import { Usuario } from '@/types';
 
 // Tipos
 interface AuthContextType {
-  user: User | null;
+  user: Usuario | null;
   token: string | null;
   isLoading: boolean;
   error: string | null;
@@ -33,7 +34,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Provedor de autenticação
 export const AuthProvider = ({ children }: AuthProviderProps) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<Usuario | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,10 +67,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     
     try {
       setIsLoading(true);
-      const response = await http.get('/me');
-      if (response.status === 'success' && response.user) {
-        setUser(response.user);
-        localStorage.setItem('user', JSON.stringify(response.user));
+      const response = await http.get<Usuario>('/me');
+      if (response.status === 'success' && response.data) {
+        const userData: Usuario = {
+          ...response.data,
+          role: response.data.type || response.data.roles?.[0]?.name || 'user',
+        };
+        
+        setUser(userData);
+        localStorage.setItem('user', JSON.stringify(userData));
       }
     } catch (error) {
       console.error('Erro ao verificar autenticação:', error);
@@ -87,15 +93,26 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       
       const response = await http.post('/login', { email, password });
       
-      if (response.status === 'success' && response.token && response.user) {
+      if (response.status === 'success' && response.token) {
         // Salvar token em cookie e localStorage
         Cookies.set('auth_token', response.token, { expires: COOKIE_EXPIRY, sameSite: 'Lax' });
         localStorage.setItem('auth_token', response.token);
-        localStorage.setItem('user', JSON.stringify(response.user));
+        
+        // Se a resposta já incluir o usuário, usamos ele
+        if (response.user) {
+          const userData: Usuario = {
+            ...response.user,
+            role: response.user.type || response.roles?.[0] || 'user',
+          };
+          
+          setUser(userData);
+          localStorage.setItem('user', JSON.stringify(userData));
+        } else {
+          // Caso contrário, buscamos os dados do usuário
+          await checkAuth();
+        }
         
         setToken(response.token);
-        setUser(response.user);
-        
         router.push('/dashboard');
       }
     } catch (error: any) {
@@ -120,15 +137,26 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       
       const response = await http.post('/register', data);
       
-      if (response.status === 'success' && response.token && response.user) {
+      if (response.status === 'success' && response.token) {
         // Salvar token em cookie e localStorage
         Cookies.set('auth_token', response.token, { expires: COOKIE_EXPIRY, sameSite: 'Lax' });
         localStorage.setItem('auth_token', response.token);
-        localStorage.setItem('user', JSON.stringify(response.user));
+        
+        // Se a resposta já incluir o usuário, usamos ele
+        if (response.user) {
+          const userData: Usuario = {
+            ...response.user,
+            role: response.user.type || response.roles?.[0] || 'user',
+          };
+          
+          setUser(userData);
+          localStorage.setItem('user', JSON.stringify(userData));
+        } else {
+          // Caso contrário, buscamos os dados do usuário
+          await checkAuth();
+        }
         
         setToken(response.token);
-        setUser(response.user);
-        
         router.push('/dashboard');
       }
     } catch (error: any) {

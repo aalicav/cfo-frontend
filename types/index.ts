@@ -1,9 +1,44 @@
 export interface Usuario {
-  id: string;
+  id: number | string;
   name: string;
   email: string;
-  role: string;
+  email_verified_at?: string;
+  two_factor_confirmed_at?: string | null;
+  type?: string;
+  role?: string;
+  profile_photo_path?: string | null;
   profile_photo_url?: string;
+  status?: boolean;
+  created_at?: string;
+  updated_at?: string;
+  roles?: Role[];
+  permissions?: string[];
+}
+
+export interface Role {
+  id: number;
+  name: string;
+  guard_name: string;
+  created_at: string;
+  updated_at: string;
+  pivot?: {
+    model_type: string;
+    model_id: number;
+    role_id: number;
+  };
+  permissions?: Permission[];
+}
+
+export interface Permission {
+  id: number;
+  name: string;
+  guard_name: string;
+  created_at: string;
+  updated_at: string;
+  pivot?: {
+    role_id: number;
+    permission_id: number;
+  };
 }
 
 export interface TeamMembership {
