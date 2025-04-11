@@ -117,10 +117,6 @@ export function ProjetoHistorico({ projetoId }: ProjetoHistoricoProps) {
       case "status":
         return <Clock className="h-4 w-4" />
       case "meta":
-        ;/>
-      case "status":
-        return <Clock className="h-4 w-4" />
-      case "meta":
         return <CheckCircle2 className="h-4 w-4" />
       case "alerta":
         return <AlertCircle className="h-4 w-4" />

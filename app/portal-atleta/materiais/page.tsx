@@ -156,4 +156,18 @@ export default function PortalAtletaMateriaisPage() {
                         <Button variant="outline" size="sm" className="text-green-700">
                           <ExternalLink className="h-4 w-4 mr-1" /> Assistir
                         </Button>
-                        \
+                        <span className="text-xs text-muted-foreground">Adicionado: 10/03/2025</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
+          
+          {/* Outras abas do componente */}
+        </Tabs>
+      </div>
+    </AtletaPortalLayout>
+  )
+}
