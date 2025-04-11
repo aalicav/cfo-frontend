@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation'
 import { DashboardSidebar } from '@/components/dashboard-sidebar'
 import { Button } from '@/components/ui/button'
-import { LogOut, User, Menu, ChevronLeft, ChevronRight } from 'lucide-react'
+import { LogOut, User, Menu } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { 
   Sheet, 
@@ -23,6 +23,7 @@ import Link from 'next/link'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
+import { SidebarInset } from '@/components/ui/sidebar'
 
 interface ClientLayoutProps {
   children: React.ReactNode
@@ -77,47 +78,15 @@ export function ClientLayout({ children }: ClientLayoutProps) {
     return (
       <div className="flex min-h-screen bg-gray-50">
         {/* Sidebar para desktop */}
-        <div 
-          className={cn(
-            "hidden md:flex flex-col transition-all duration-300 ease-in-out bg-white border-r",
-            isSidebarCollapsed ? "w-20" : "w-64"
-          )}
-        >
-          <ScrollArea className="h-[calc(100vh-4rem)]">
-            <div className="p-4">
-              <Link href="/dashboard" className="flex items-center space-x-2 mb-6">
-                <span className={cn(
-                  "font-bold text-xl text-green-700",
-                  isSidebarCollapsed && "mx-auto"
-                )}>CFO</span>
-                {!isSidebarCollapsed && (
-                  <span className="text-sm text-gray-600">Centro de Formação Olímpica</span>
-                )}
-              </Link>
-              <DashboardSidebar 
-                userRole={userRole} 
-                isCollapsed={isSidebarCollapsed}
-              />
-            </div>
-          </ScrollArea>
-          <div className="mt-auto p-4 border-t">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="w-full"
-              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-            >
-              {isSidebarCollapsed ? (
-                <ChevronRight className="h-5 w-5" />
-              ) : (
-                <ChevronLeft className="h-5 w-5" />
-              )}
-            </Button>
-          </div>
+        <div className="hidden md:block">
+          <DashboardSidebar 
+            userRole={userRole} 
+            isCollapsed={isSidebarCollapsed}
+          />
         </div>
 
         {/* Conteúdo principal */}
-        <div className="flex-1 flex flex-col">
+        <SidebarInset>
           {/* Header */}
           <header className="sticky top-0 z-50 flex h-16 items-center border-b bg-white px-4 md:px-6">
             <Sheet>
@@ -167,7 +136,7 @@ export function ClientLayout({ children }: ClientLayoutProps) {
               {children}
             </div>
           </main>
-        </div>
+        </SidebarInset>
       </div>
     )
   } catch (error) {
