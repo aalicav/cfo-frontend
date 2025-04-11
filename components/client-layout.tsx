@@ -23,7 +23,7 @@ import Link from 'next/link'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { SidebarInset } from '@/components/ui/sidebar'
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 
 interface ClientLayoutProps {
   children: React.ReactNode
@@ -98,7 +98,9 @@ export function ClientLayout({ children }: ClientLayoutProps) {
               </SheetTrigger>
               <SheetContent side="left" className="w-72 p-0">
                 <ScrollArea className="h-full py-6">
-                  <DashboardSidebar userRole={userRole} />
+                  <SidebarProvider defaultOpen>
+                    <DashboardSidebar userRole={userRole} />
+                  </SidebarProvider>
                 </ScrollArea>
               </SheetContent>
             </Sheet>

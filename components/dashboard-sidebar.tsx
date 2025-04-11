@@ -108,7 +108,6 @@ export function DashboardSidebar({
   );
 
   return (
-    <SidebarProvider defaultOpen={!isCollapsed}>
       <Sidebar>
         <SidebarHeader>
           <div className="flex items-center gap-2 p-2">
@@ -203,6 +202,5 @@ export function DashboardSidebar({
           </SidebarGroup>
         </SidebarFooter>
       </Sidebar>
-    </SidebarProvider>
   );
 }
