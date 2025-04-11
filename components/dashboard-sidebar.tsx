@@ -51,7 +51,7 @@ export function DashboardSidebar({
   const menuItems = [
     {
       title: "Dashboard",
-      href: "/dashboard",
+    href: "/dashboard",
       icon: Home,
       roles: ["admin", "coach", "athlete"],
     },
@@ -94,9 +94,9 @@ export function DashboardSidebar({
       href: "/dashboard/messages",
       icon: MessageSquare,
       roles: ["admin", "coach", "athlete"],
-    },
-    {
-      title: "Notificações",
+  },
+  {
+    title: "Notificações",
       href: "/dashboard/notifications",
       icon: Bell,
       roles: ["admin", "coach", "athlete"],
@@ -115,7 +115,7 @@ export function DashboardSidebar({
             {state === "expanded" && (
               <span className="text-sm text-gray-600">Centro de Formação Olímpica</span>
             )}
-          </div>
+    </div>
         </SidebarHeader>
 
         <SidebarContent>
