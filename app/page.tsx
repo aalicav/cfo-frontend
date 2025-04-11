@@ -15,7 +15,11 @@ import {
   Bell,
   Settings,
   HelpCircle,
-  ArrowRight
+  ArrowRight,
+  Medal,
+  Target,
+  Award,
+  Clock
 } from "lucide-react"
 
 export default function Home() {
@@ -25,7 +29,9 @@ export default function Home() {
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-2">
             <Trophy className="h-6 w-6 text-green-600" />
-            <span className="text-xl font-bold">CFO</span>
+            <span className="text-xl font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent">
+              CFO
+            </span>
           </div>
           <div className="flex items-center gap-4">
             <Link href="/login">
@@ -34,7 +40,7 @@ export default function Home() {
               </Button>
             </Link>
             <Link href="/register">
-              <Button className="bg-green-600 hover:bg-green-700">
+              <Button className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800">
                 Registrar
               </Button>
             </Link>
@@ -43,15 +49,19 @@ export default function Home() {
       </header>
 
       <main className="flex-1">
-        <section className="space-y-6 pb-8 pt-6 md:pb-12 md:pt-10 lg:py-32">
-          <div className="container flex max-w-[64rem] flex-col items-center gap-4 text-center">
+        {/* Hero Section */}
+        <section className="relative space-y-6 pb-8 pt-6 md:pb-12 md:pt-10 lg:py-32">
+          <div className="absolute inset-0 bg-gradient-to-b from-green-50 to-background" />
+          <div className="container relative flex max-w-[64rem] flex-col items-center gap-4 text-center">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
             >
               <h1 className="text-4xl font-bold sm:text-5xl md:text-6xl lg:text-7xl">
-                Centro de Formação Olímpica
+                <span className="bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent">
+                  Centro de Formação Olímpica
+                </span>
               </h1>
             </motion.div>
             <motion.p
@@ -69,7 +79,7 @@ export default function Home() {
               className="space-x-4"
             >
               <Link href="/login">
-                <Button size="lg" className="bg-green-600 hover:bg-green-700">
+                <Button size="lg" className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800">
                   Começar agora
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
@@ -78,17 +88,20 @@ export default function Home() {
           </div>
         </section>
 
+        {/* Features Section */}
         <section className="container space-y-6 py-8 md:py-12 lg:py-24">
           <div className="mx-auto flex max-w-[58rem] flex-col items-center space-y-4 text-center">
             <h2 className="text-3xl font-bold leading-[1.1] sm:text-3xl md:text-6xl">
-              Recursos Principais
+              <span className="bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent">
+                Recursos Principais
+              </span>
             </h2>
             <p className="max-w-[85%] leading-normal text-muted-foreground sm:text-lg sm:leading-7">
               Explore as principais funcionalidades do sistema
             </p>
           </div>
           <div className="mx-auto grid justify-center gap-4 sm:grid-cols-2 md:max-w-[64rem] md:grid-cols-3">
-            <Card className="group relative overflow-hidden transition-all hover:shadow-lg">
+            <Card className="group relative overflow-hidden transition-all hover:shadow-lg hover:border-green-200">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Users className="h-5 w-5 text-green-600" />
@@ -106,7 +119,7 @@ export default function Home() {
               </CardContent>
             </Card>
 
-            <Card className="group relative overflow-hidden transition-all hover:shadow-lg">
+            <Card className="group relative overflow-hidden transition-all hover:shadow-lg hover:border-green-200">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Trophy className="h-5 w-5 text-green-600" />
@@ -124,7 +137,7 @@ export default function Home() {
               </CardContent>
             </Card>
 
-            <Card className="group relative overflow-hidden transition-all hover:shadow-lg">
+            <Card className="group relative overflow-hidden transition-all hover:shadow-lg hover:border-green-200">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Calendar className="h-5 w-5 text-green-600" />
@@ -140,6 +153,61 @@ export default function Home() {
                   Popular
                 </Badge>
               </CardContent>
+            </Card>
+          </div>
+        </section>
+
+        {/* Benefits Section */}
+        <section className="container space-y-6 py-8 md:py-12 lg:py-24">
+          <div className="mx-auto flex max-w-[58rem] flex-col items-center space-y-4 text-center">
+            <h2 className="text-3xl font-bold leading-[1.1] sm:text-3xl md:text-6xl">
+              <span className="bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent">
+                Benefícios
+              </span>
+            </h2>
+            <p className="max-w-[85%] leading-normal text-muted-foreground sm:text-lg sm:leading-7">
+              Descubra como podemos ajudar no desenvolvimento esportivo
+            </p>
+          </div>
+          <div className="mx-auto grid justify-center gap-4 sm:grid-cols-2 md:max-w-[64rem] md:grid-cols-4">
+            <Card className="group relative overflow-hidden transition-all hover:shadow-lg hover:border-green-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Medal className="h-5 w-5 text-green-600" />
+                  Excelência
+                </CardTitle>
+                <CardDescription>Alto padrão de qualidade</CardDescription>
+              </CardHeader>
+            </Card>
+
+            <Card className="group relative overflow-hidden transition-all hover:shadow-lg hover:border-green-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="h-5 w-5 text-green-600" />
+                  Foco
+                </CardTitle>
+                <CardDescription>Desenvolvimento contínuo</CardDescription>
+              </CardHeader>
+            </Card>
+
+            <Card className="group relative overflow-hidden transition-all hover:shadow-lg hover:border-green-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Award className="h-5 w-5 text-green-600" />
+                  Reconhecimento
+                </CardTitle>
+                <CardDescription>Premiações e conquistas</CardDescription>
+              </CardHeader>
+            </Card>
+
+            <Card className="group relative overflow-hidden transition-all hover:shadow-lg hover:border-green-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-green-600" />
+                  Dedicação
+                </CardTitle>
+                <CardDescription>Compromisso com resultados</CardDescription>
+              </CardHeader>
             </Card>
           </div>
         </section>

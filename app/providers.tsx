@@ -2,6 +2,7 @@
 
 import { ReactNode } from 'react';
 import { AuthProvider } from '@/hooks/useAuth';
+import { ClientLayout } from '@/components/client-layout';
 
 interface ProvidersProps {
   children: ReactNode;
@@ -10,7 +11,9 @@ interface ProvidersProps {
 export default function Providers({ children }: ProvidersProps) {
   return (
     <AuthProvider>
-      {children}
+      <ClientLayout>
+        {children}
+      </ClientLayout>
     </AuthProvider>
   );
 } 
