@@ -146,4 +146,67 @@ export const atletasService = {
   },
 };
 
+// Serviço de times
+export const timesService = {
+  // Listar todos os times com filtros
+  listar: async (params?: any) => {
+    const response = await api.get('/teams', { params });
+    return response.data;
+  },
+
+  // Obter um time específico
+  obter: async (id: string) => {
+    const response = await api.get(`/teams/${id}`);
+    return response.data;
+  },
+
+  // Criar um novo time
+  criar: async (dados: any) => {
+    const response = await api.post('/teams', dados);
+    return response.data;
+  },
+
+  // Atualizar um time
+  atualizar: async (id: string, dados: any) => {
+    const response = await api.put(`/teams/${id}`, dados);
+    return response.data;
+  },
+
+  // Excluir um time
+  excluir: async (id: string) => {
+    const response = await api.delete(`/teams/${id}`);
+    return response.data;
+  },
+
+  // Gerenciar atletas no time
+  gerenciarAtletas: async (id: string, atletasIds: string[]) => {
+    const response = await api.post(`/teams/${id}/athletes`, { athletes: atletasIds });
+    return response.data;
+  },
+
+  // Gerenciar comissão técnica
+  gerenciarComissaoTecnica: async (id: string, comissao: any[]) => {
+    const response = await api.post(`/teams/${id}/technical-committee`, { technical_committee: comissao });
+    return response.data;
+  },
+
+  // Gerenciar locais de treinamento
+  gerenciarLocaisTreinamento: async (id: string, locais: any[]) => {
+    const response = await api.post(`/teams/${id}/training-locations`, { training_locations: locais });
+    return response.data;
+  },
+
+  // Adicionar competição ao time
+  adicionarCompeticao: async (id: string, dados: any) => {
+    const response = await api.post(`/teams/${id}/competitions`, dados);
+    return response.data;
+  },
+
+  // Adicionar evento ao time
+  adicionarEvento: async (id: string, dados: any) => {
+    const response = await api.post(`/teams/${id}/events`, dados);
+    return response.data;
+  },
+};
+
 export default api; 

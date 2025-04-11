@@ -2,9 +2,9 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -12,11 +12,49 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { ArrowLeft, Plus, Trash2 } from "lucide-react"
-import { atletasMock } from "@/lib/atletas-mock"
+import { atletasService, avaliacoesService } from "@/services/api"
+import { Atleta } from "@/types"
+import { useToast } from "@/hooks/use-toast"
 
 export default function NovaAvaliacaoPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const atletaId = searchParams.get('atleta')
+  const { toast } = useToast()
   const [indicadores, setIndicadores] = useState([{ nome: "", valor: "", unidade: "%", referencia: "" }])
+  const [atletas, setAtletas] = useState<Atleta[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState("")
+  const [isSaving, setIsSaving] = useState(false)
+  
+  const [formData, setFormData] = useState({
+    atleta_id: atletaId || "",
+    tipo: "",
+    data: "",
+    responsavel: "",
+    modalidade: "",
+    local: "",
+    observacoes: ""
+  })
+
+  useEffect(() => {
+    const carregarAtletas = async () => {
+      setIsLoading(true)
+      try {
+        const response = await atletasService.listar()
+        if (response && response.data) {
+          setAtletas(response.data)
+        }
+      } catch (error) {
+        console.error("Erro ao carregar atletas:", error)
+        setError("Ocorreu um erro ao carregar os atletas. Tente novamente mais tarde.")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    carregarAtletas()
+  }, [])
 
   const adicionarIndicador = () => {
     setIndicadores([...indicadores, { nome: "", valor: "", unidade: "%", referencia: "" }])
@@ -34,11 +72,98 @@ export default function NovaAvaliacaoPage() {
     setIndicadores(novosIndicadores)
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    // Em uma aplicação real, aqui seria feita a submissão para a API
-    router.push("/dashboard/desempenho")
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setFormData(prev => ({ ...prev, [name]: value }))
   }
+
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData(prev => ({ ...prev, [name]: value }))
+  }
+
+  const mapTipoToBackend = (tipo: string): 'Física' | 'Técnica' | 'Médica' => {
+    switch (tipo) {
+      case "fisica": return "Física"
+      case "tecnica": return "Técnica"
+      case "medica": return "Médica"
+      default: return "Física"
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSaving(true)
+    
+    // Validação
+    if (!formData.atleta_id || !formData.tipo || !formData.data || !formData.responsavel) {
+      toast({
+        title: "Erro de validação",
+        description: "Por favor, preencha todos os campos obrigatórios",
+        variant: "destructive"
+      })
+      setIsSaving(false)
+      return
+    }
+
+    try {
+      // Preparar dados para o backend
+      const dadosAvaliacao = {
+        athlete_id: formData.atleta_id,
+        type: mapTipoToBackend(formData.tipo),
+        evaluation_date: formData.data,
+        title: `Avaliação ${mapTipoToBackend(formData.tipo)}`,
+        created_by: null, // Será preenchido pelo backend com o usuário autenticado
+        observations: formData.observacoes,
+        status: "pending" as 'pending',
+        indicators: indicadores.map(indicador => ({
+          name: indicador.nome,
+          value: indicador.valor,
+          unit: indicador.unidade,
+          reference: indicador.referencia || null,
+          description: null,
+          observation: null
+        }))
+      }
+
+      // Enviar para a API
+      await avaliacoesService.criar(dadosAvaliacao)
+      
+      toast({
+        title: "Avaliação criada",
+        description: "A avaliação foi criada com sucesso",
+      })
+      
+      router.push("/dashboard/desempenho")
+    } catch (error) {
+      console.error("Erro ao criar avaliação:", error)
+      toast({
+        title: "Erro ao criar avaliação",
+        description: "Ocorreu um erro ao salvar a avaliação. Tente novamente.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <p className="text-lg">Carregando dados...</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <p className="text-lg text-red-500">{error}</p>
+      </div>
+    )
+  }
+
+  // Obter modalidades únicas dos atletas
+  const modalidades = Array.from(new Set(atletas.flatMap(atleta => atleta.modalities || [])))
 
   return (
     <div className="space-y-6">
@@ -61,15 +186,19 @@ export default function NovaAvaliacaoPage() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="atleta">Atleta</Label>
-                  <Select required>
-                    <SelectTrigger id="atleta">
+                  <Label htmlFor="atleta_id">Atleta</Label>
+                  <Select 
+                    value={formData.atleta_id} 
+                    onValueChange={value => handleSelectChange("atleta_id", value)}
+                    required
+                  >
+                    <SelectTrigger id="atleta_id">
                       <SelectValue placeholder="Selecione o atleta" />
                     </SelectTrigger>
                     <SelectContent>
-                      {atletasMock.map((atleta) => (
+                      {atletas.map((atleta) => (
                         <SelectItem key={atleta.id} value={atleta.id}>
-                          {atleta.nome}
+                          {atleta.user?.name || "Atleta sem nome"}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -78,7 +207,11 @@ export default function NovaAvaliacaoPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="tipo">Tipo de Avaliação</Label>
-                  <Select required>
+                  <Select
+                    value={formData.tipo}
+                    onValueChange={value => handleSelectChange("tipo", value)}
+                    required
+                  >
                     <SelectTrigger id="tipo">
                       <SelectValue placeholder="Selecione o tipo" />
                     </SelectTrigger>
@@ -92,38 +225,72 @@ export default function NovaAvaliacaoPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="data">Data da Avaliação</Label>
-                  <Input type="date" id="data" required />
+                  <Input 
+                    type="date" 
+                    id="data" 
+                    name="data"
+                    value={formData.data}
+                    onChange={handleInputChange}
+                    required 
+                  />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="responsavel">Responsável</Label>
-                  <Input type="text" id="responsavel" placeholder="Nome do responsável" required />
+                  <Input 
+                    type="text" 
+                    id="responsavel" 
+                    name="responsavel"
+                    value={formData.responsavel}
+                    onChange={handleInputChange}
+                    placeholder="Nome do responsável" 
+                    required 
+                  />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="modalidade">Modalidade</Label>
-                  <Select required>
+                  <Select
+                    value={formData.modalidade}
+                    onValueChange={value => handleSelectChange("modalidade", value)}
+                    required
+                  >
                     <SelectTrigger id="modalidade">
                       <SelectValue placeholder="Selecione a modalidade" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="natacao">Natação</SelectItem>
-                      <SelectItem value="atletismo">Atletismo</SelectItem>
-                      <SelectItem value="ginastica">Ginástica</SelectItem>
-                      <SelectItem value="judo">Judô</SelectItem>
+                      {modalidades.map((modalidade) => (
+                        <SelectItem key={modalidade} value={modalidade}>
+                          {modalidade}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="local">Local</Label>
-                  <Input type="text" id="local" placeholder="Local da avaliação" />
+                  <Input 
+                    type="text" 
+                    id="local" 
+                    name="local"
+                    value={formData.local}
+                    onChange={handleInputChange}
+                    placeholder="Local da avaliação" 
+                  />
                 </div>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="observacoes">Observações</Label>
-                <Textarea id="observacoes" placeholder="Observações gerais sobre a avaliação" rows={3} />
+                <Textarea 
+                  id="observacoes" 
+                  name="observacoes"
+                  value={formData.observacoes}
+                  onChange={handleInputChange}
+                  placeholder="Observações gerais sobre a avaliação" 
+                  rows={3} 
+                />
               </div>
             </CardContent>
           </Card>
@@ -144,21 +311,6 @@ export default function NovaAvaliacaoPage() {
                     <SelectItem value="padrao">Protocolo Padrão CFO</SelectItem>
                     <SelectItem value="especifico">Protocolo Específico</SelectItem>
                     <SelectItem value="personalizado">Personalizado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="categoria">Categoria</Label>
-                <Select>
-                  <SelectTrigger id="categoria">
-                    <SelectValue placeholder="Selecione a categoria" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="sub15">Sub-15</SelectItem>
-                    <SelectItem value="sub17">Sub-17</SelectItem>
-                    <SelectItem value="sub20">Sub-20</SelectItem>
-                    <SelectItem value="adulto">Adulto</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -264,8 +416,12 @@ export default function NovaAvaliacaoPage() {
               <Button variant="outline" type="button" onClick={() => router.push("/dashboard/desempenho")}>
                 Cancelar
               </Button>
-              <Button type="submit" className="bg-green-700 hover:bg-green-600">
-                Salvar Avaliação
+              <Button 
+                type="submit" 
+                className="bg-green-700 hover:bg-green-600"
+                disabled={isSaving}
+              >
+                {isSaving ? "Salvando..." : "Salvar Avaliação"}
               </Button>
             </CardFooter>
           </Card>

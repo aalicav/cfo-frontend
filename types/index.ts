@@ -6,38 +6,46 @@ export interface Usuario {
   profile_photo_url?: string;
 }
 
+export interface TeamMembership {
+  id?: string;
+  team_id: string;
+  joined_at: string;
+  left_at?: string;
+  role?: string;
+  team?: {
+    id: string;
+    name: string;
+    category?: string;
+  };
+}
+
 export interface Atleta {
   id: string;
-  user_id: string;
-  registration_number?: string;
+  code?: string;
   birth_date?: string;
-  phone?: string;
-  address?: string;
-  city?: string;
-  state?: string;
-  zip_code?: string;
-  emergency_contact_name?: string;
-  emergency_contact_phone?: string;
-  medical_conditions?: string;
-  allergies?: string;
-  modalities?: string[];
-  blood_type?: string;
+  gender?: string;
   height?: number;
   weight?: number;
-  identity_document?: string;
   document_number?: string;
-  nationality?: string;
-  status: 'active' | 'inactive' | 'suspended';
-  joined_at?: string;
-  expires_at?: string;
-  notes?: string;
-  achievements?: any[];
-  metrics?: any;
-  is_professional?: boolean;
-  has_health_insurance?: boolean;
-  health_insurance_provider?: string;
-  health_insurance_number?: string;
-  user?: Usuario;
+  document_type?: string;
+  phone?: string;
+  address?: string;
+  emergency_contact?: string;
+  emergency_phone?: string;
+  health_insurance?: string;
+  health_observations?: string;
+  photo_url?: string;
+  status: "active" | "inactive" | "suspended" | "pending";
+  group?: string;
+  created_at?: string;
+  updated_at?: string;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  modalities?: string[];
+  team_memberships?: TeamMembership[];
 }
 
 export interface Indicador {
@@ -56,7 +64,7 @@ export interface Indicador {
 export interface Avaliacao {
   id: string;
   athlete_id: string;
-  created_by: string;
+  created_by: string | Usuario;
   evaluation_date: string;
   type: 'Física' | 'Técnica' | 'Médica';
   title: string;
@@ -97,4 +105,77 @@ export interface ApiResponse<T> {
   status: string;
   message?: string;
   data: T;
+}
+
+// Interfaces para Teams (Times)
+export interface Team {
+  id: string;
+  name: string;
+  modality: string;
+  category: string;
+  coach: string;
+  description?: string;
+  creation_date?: string;
+  medals: number;
+  competitions: number;
+  weekly_trainings: number;
+  created_at: string;
+  updated_at: string;
+  athletes?: Atleta[];
+  technical_committee?: TechnicalCommitteeMember[];
+  training_locations?: TrainingLocation[];
+  competitions_history?: Competition[];
+  upcoming_events?: Event[];
+}
+
+export interface TechnicalCommitteeMember {
+  id?: string;
+  team_id: string;
+  name: string;
+  role: string;
+  contact?: string;
+  photo_url?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface TrainingLocation {
+  id?: string;
+  team_id: string;
+  name: string;
+  address?: string;
+  days: string;
+  schedule: string;
+  space_id?: string;
+  created_at?: string;
+  updated_at?: string;
+  space?: {
+    id: string;
+    name: string;
+  };
+}
+
+export interface Competition {
+  id?: string;
+  team_id: string;
+  name: string;
+  date: string;
+  location: string;
+  result: string;
+  description?: string;
+  highlights?: string[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface Event {
+  id?: string;
+  team_id: string;
+  name: string;
+  date: string;
+  location: string;
+  description?: string;
+  type: string;
+  created_at?: string;
+  updated_at?: string;
 } 

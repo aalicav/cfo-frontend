@@ -1,554 +1,484 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
-import Link from "next/link"
+import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
+import Image from "next/image"
+import { format } from "date-fns"
+import { ptBR } from "date-fns/locale"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
-import { ArrowLeft, Edit, User, Calendar, Mail, Phone, MapPin, FileText, Medal, Dumbbell, Users } from "lucide-react"
-import { atletasMock } from "@/lib/atletas-mock"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { AtletaDocumentos } from "@/components/atleta-documentos"
-import { AtletaHistorico } from "@/components/atleta-historico"
-import { AtletaDesempenho } from "@/components/atleta-desempenho"
+import { Calendar } from "@/components/ui/calendar"
+import { ChevronLeft, Edit, Trash, Activity, Trophy, MessageCircleIcon as Message, Calendar as CalendarIcon } from "lucide-react"
+import { atletasService, avaliacoesService } from "@/services/api"
+import { Atleta, Avaliacao } from "@/types"
+import Link from "next/link"
+import { ResponsiveContainer, BarChart as RechartsBarChart, Bar, XAxis, YAxis, Tooltip, Legend, RadarChart as RechartsRadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from "recharts"
 
 export default function AtletaDetalhesPage() {
-  const params = useParams()
   const router = useRouter()
-  const id = params.id as string
-  const atleta = atletasMock.find((a) => a.id === id)
-
-  const [activeTab, setActiveTab] = useState("perfil")
-
+  const params = useParams()
+  const id = params?.id as string
+  
+  const [atleta, setAtleta] = useState<Atleta | null>(null)
+  const [avaliacoes, setAvaliacoes] = useState<Avaliacao[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState("")
+  
+  useEffect(() => {
+    const carregarDados = async () => {
+      setIsLoading(true)
+      try {
+        // Carregar dados do atleta
+        const atletaResponse = await atletasService.obter(id)
+        if (atletaResponse && atletaResponse.data) {
+          setAtleta(atletaResponse.data)
+        }
+        
+        // Carregar avaliações do atleta
+        const avaliacoesResponse = await avaliacoesService.listar({ athlete_id: id })
+        if (avaliacoesResponse && avaliacoesResponse.data) {
+          setAvaliacoes(avaliacoesResponse.data)
+        }
+      } catch (error) {
+        console.error("Erro ao carregar dados:", error)
+        setError("Ocorreu um erro ao carregar os dados do atleta. Tente novamente mais tarde.")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    
+    if (id) {
+      carregarDados()
+    }
+  }, [id])
+  
+  const formatarData = (data: string) => {
+    try {
+      return format(new Date(data), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+    } catch (e) {
+      return "Data inválida"
+    }
+  }
+  
+  const calcularIdade = (dataNascimento: string) => {
+    try {
+      const hoje = new Date()
+      const nascimento = new Date(dataNascimento)
+      let idade = hoje.getFullYear() - nascimento.getFullYear()
+      const m = hoje.getMonth() - nascimento.getMonth()
+      
+      if (m < 0 || (m === 0 && hoje.getDate() < nascimento.getDate())) {
+        idade--
+      }
+      
+      return idade
+    } catch (e) {
+      return "N/A"
+    }
+  }
+  
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <p className="text-lg">Carregando dados do atleta...</p>
+      </div>
+    )
+  }
+  
+  if (error) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <p className="text-lg text-red-500">{error}</p>
+      </div>
+    )
+  }
+  
   if (!atleta) {
     return (
-      <div className="flex flex-col items-center justify-center h-[50vh]">
-        <h2 className="text-2xl font-bold">Atleta não encontrado</h2>
-        <p className="text-muted-foreground mb-4">O atleta que você está procurando não existe.</p>
-        <Button onClick={() => router.push("/dashboard/atletas")}>Voltar para lista de atletas</Button>
+      <div className="flex justify-center items-center h-64">
+        <p className="text-lg">Atleta não encontrado</p>
       </div>
     )
   }
 
+  // Preparar dados para gráficos
+  const dadosDesempenho = avaliacoes.map(avaliacao => ({
+    name: format(new Date(avaliacao.evaluation_date), "dd/MM/yy"),
+    desempenho: Math.floor(Math.random() * 100) // Simulação - idealmente seria baseado em indicadores reais
+  }))
+  
+  const dadosRadar = [
+    { subject: "Resistência", A: 75, B: 65 },
+    { subject: "Força", A: 80, B: 70 },
+    { subject: "Velocidade", A: 65, B: 60 },
+    { subject: "Flexibilidade", A: 70, B: 65 },
+    { subject: "Técnica", A: 85, B: 75 }
+  ]
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" asChild>
-            <Link href="/dashboard/atletas">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <h1 className="text-3xl font-bold tracking-tight">{atleta.nome}</h1>
-          <Badge
-            className={`ml-2 ${
-              atleta.status === "ativo" ? "bg-green-500" : atleta.status === "inativo" ? "bg-gray-500" : "bg-yellow-500"
-            }`}
-          >
-            {atleta.status === "ativo" ? "Ativo" : atleta.status === "inativo" ? "Inativo" : "Pendente"}
-          </Badge>
-        </div>
-        <div className="flex gap-2">
-          <Link href={`/dashboard/atletas/${id}/editar`}>
-            <Button className="bg-green-700 hover:bg-green-600">
-              <Edit className="mr-2 h-4 w-4" />
-              Editar
-            </Button>
-          </Link>
-        </div>
+      <div className="flex items-center gap-2">
+        <Button variant="outline" size="icon" onClick={() => router.push("/dashboard/atletas")}>
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <h1 className="text-3xl font-bold tracking-tight">Detalhes do Atleta</h1>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="perfil">Perfil</TabsTrigger>
-          <TabsTrigger value="documentos">Documentos</TabsTrigger>
-          <TabsTrigger value="modalidades">Modalidades e Times</TabsTrigger>
-          <TabsTrigger value="historico">Histórico</TabsTrigger>
-          <TabsTrigger value="desempenho">Desempenho</TabsTrigger>
-        </TabsList>
+      <div className="grid gap-6 md:grid-cols-7">
+        <div className="md:col-span-2 space-y-6">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex flex-col items-center space-y-4">
+                <div className="relative w-32 h-32">
+                  <Image
+                    src={atleta.photo_url || "/placeholder-avatar.jpg"}
+                    alt={atleta.user?.name || "Atleta"}
+                    className="rounded-full object-cover border-4 border-white shadow-md"
+                    fill
+                  />
+                </div>
+                <div className="text-center">
+                  <h2 className="text-2xl font-bold">{atleta.user?.name}</h2>
+                  <p className="text-gray-500">{atleta.code}</p>
+                </div>
+                <div className="flex space-x-2">
+                  <Button variant="outline" size="icon">
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="icon" className="text-red-500">
+                    <Trash className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-        <TabsContent value="perfil" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="md:col-span-2">
-              <CardHeader>
-                <CardTitle>Dados Pessoais</CardTitle>
-                <CardDescription>Informações pessoais do atleta</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex flex-col sm:flex-row gap-4 items-center sm:items-start">
-                  <Avatar className="h-24 w-24 border">
-                    <AvatarImage src={atleta.foto} alt={atleta.nome} />
-                    <AvatarFallback className="text-2xl">{atleta.nome.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                  <div className="space-y-2 text-center sm:text-left">
-                    <h2 className="text-xl font-bold">{atleta.nome}</h2>
-                    <div className="flex flex-wrap justify-center sm:justify-start gap-2">
-                      {atleta.modalidades.map((modalidade) => (
-                        <Badge key={modalidade} variant="outline">
+          <Card>
+            <CardHeader>
+              <CardTitle>Informações Pessoais</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <p className="text-sm text-gray-500">Nome Completo</p>
+                <p className="font-medium">{atleta.user?.name}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Data de Nascimento</p>
+                <p className="font-medium">{atleta.birth_date ? formatarData(atleta.birth_date) : "Não informado"}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Idade</p>
+                <p className="font-medium">{atleta.birth_date ? calcularIdade(atleta.birth_date) + " anos" : "Não informado"}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Documento</p>
+                <p className="font-medium">{atleta.document_number || "Não informado"}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Email</p>
+                <p className="font-medium">{atleta.user?.email || "Não informado"}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Telefone</p>
+                <p className="font-medium">{atleta.phone || "Não informado"}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="md:col-span-5 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Informações Esportivas</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm text-gray-500">Modalidades</p>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {atleta.modalities && atleta.modalities.length > 0 ? (
+                      atleta.modalities.map((modalidade, index) => (
+                        <span key={index} className="bg-blue-100 text-blue-800 px-2 py-1 rounded-md text-sm">
                           {modalidade}
-                        </Badge>
-                      ))}
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Categoria: {atleta.categoria} • {atleta.idade} anos
-                    </p>
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-muted-foreground">Nome Completo</p>
-                    <div className="flex items-center">
-                      <User className="h-4 w-4 mr-2 text-muted-foreground" />
-                      <p>{atleta.nome}</p>
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-muted-foreground">Data de Nascimento</p>
-                    <div className="flex items-center">
-                      <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
-                      <p>
-                        {atleta.dataNascimento} ({atleta.idade} anos)
-                      </p>
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-muted-foreground">Documento</p>
-                    <div className="flex items-center">
-                      <FileText className="h-4 w-4 mr-2 text-muted-foreground" />
-                      <p>{atleta.documento}</p>
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-muted-foreground">Gênero</p>
-                    <div className="flex items-center">
-                      <User className="h-4 w-4 mr-2 text-muted-foreground" />
-                      <p>{atleta.genero}</p>
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-muted-foreground">Email</p>
-                    <div className="flex items-center">
-                      <Mail className="h-4 w-4 mr-2 text-muted-foreground" />
-                      <p>{atleta.email}</p>
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-muted-foreground">Telefone</p>
-                    <div className="flex items-center">
-                      <Phone className="h-4 w-4 mr-2 text-muted-foreground" />
-                      <p>{atleta.telefone}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div>
-                  <h3 className="font-medium mb-2">Endereço</h3>
-                  <div className="flex items-start">
-                    <MapPin className="h-4 w-4 mr-2 mt-0.5 text-muted-foreground" />
-                    <p className="text-muted-foreground">{atleta.endereco}</p>
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div>
-                  <h3 className="font-medium mb-2">Informações Adicionais</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-muted-foreground">Altura</p>
-                      <p>{atleta.altura} cm</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-muted-foreground">Peso</p>
-                      <p>{atleta.peso} kg</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-muted-foreground">Tipo Sanguíneo</p>
-                      <p>{atleta.tipoSanguineo}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {atleta.observacoes && (
-                  <>
-                    <Separator />
-                    <div>
-                      <h3 className="font-medium mb-2">Observações</h3>
-                      <p className="text-muted-foreground">{atleta.observacoes}</p>
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Contatos de Emergência</CardTitle>
-                  <CardDescription>Pessoas para contato em caso de emergência</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {atleta.contatosEmergencia ? (
-                      atleta.contatosEmergencia.map((contato, index) => (
-                        <div key={index} className="flex items-start space-x-3 border-b pb-3 last:border-0">
-                          <div className="bg-blue-100 text-blue-700 p-2 rounded-md">
-                            <User className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <p className="font-medium">{contato.nome}</p>
-                            <p className="text-sm text-muted-foreground">{contato.parentesco}</p>
-                            <p className="text-sm text-muted-foreground">{contato.telefone}</p>
-                          </div>
-                        </div>
+                        </span>
                       ))
                     ) : (
-                      <div className="flex items-start space-x-3">
-                        <div className="bg-blue-100 text-blue-700 p-2 rounded-md">
-                          <User className="h-4 w-4" />
-                        </div>
-                        <div>
-                          <p className="font-medium">Maria Silva</p>
-                          <p className="text-sm text-muted-foreground">Mãe</p>
-                          <p className="text-sm text-muted-foreground">(85) 98765-4321</p>
-                        </div>
-                      </div>
+                      <span className="text-gray-400">Nenhuma modalidade registrada</span>
                     )}
                   </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Estatísticas</CardTitle>
-                  <CardDescription>Números do atleta</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <Dumbbell className="h-5 w-5 mr-2 text-muted-foreground" />
-                      <span>Modalidades</span>
-                    </div>
-                    <Badge variant="outline" className="font-medium">
-                      {atleta.modalidades.length}
-                    </Badge>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Status</p>
+                  <span className={`px-2 py-1 rounded-md text-sm ${
+                    atleta.status === "active" ? "bg-green-100 text-green-800" :
+                    atleta.status === "inactive" ? "bg-red-100 text-red-800" :
+                    "bg-yellow-100 text-yellow-800"
+                  }`}>
+                    {atleta.status === "active" ? "Ativo" :
+                     atleta.status === "inactive" ? "Inativo" :
+                     atleta.status === "pending" ? "Pendente" : atleta.status}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Categoria</p>
+                  <p className="font-medium">{atleta.group || "Não informado"}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Times</p>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {atleta.team_memberships && atleta.team_memberships.length > 0 ? (
+                      atleta.team_memberships.map((time, index) => (
+                        <span key={index} className="bg-purple-100 text-purple-800 px-2 py-1 rounded-md text-sm">
+                          {time.team?.name}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-gray-400">Nenhum time registrado</span>
+                    )}
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <Users className="h-5 w-5 mr-2 text-muted-foreground" />
-                      <span>Times</span>
-                    </div>
-                    <Badge variant="outline" className="font-medium">
-                      {atleta.times?.length || 1}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <Medal className="h-5 w-5 mr-2 text-muted-foreground" />
-                      <span>Competições</span>
-                    </div>
-                    <Badge variant="outline" className="font-medium">
-                      {atleta.competicoes}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <Trophy className="h-5 w-5 mr-2 text-muted-foreground" />
-                      <span>Medalhas</span>
-                    </div>
-                    <Badge variant="outline" className="font-medium">
-                      {atleta.medalhas || 0}
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Status da Documentação</CardTitle>
-                  <CardDescription>Situação dos documentos obrigatórios</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <FileText className="h-4 w-4 mr-2 text-muted-foreground" />
-                        <span className="text-sm">Atestado Médico</span>
-                      </div>
-                      <Badge
-                        className={
-                          atleta.documentos?.atestadoMedico?.status === "valido"
-                            ? "bg-green-500"
-                            : atleta.documentos?.atestadoMedico?.status === "pendente"
-                              ? "bg-yellow-500"
-                              : "bg-red-500"
-                        }
-                      >
-                        {atleta.documentos?.atestadoMedico?.status === "valido"
-                          ? "Válido"
-                          : atleta.documentos?.atestadoMedico?.status === "pendente"
-                            ? "Pendente"
-                            : "Vencido"}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <FileText className="h-4 w-4 mr-2 text-muted-foreground" />
-                        <span className="text-sm">Autorização</span>
-                      </div>
-                      <Badge
-                        className={
-                          atleta.documentos?.autorizacao?.status === "valido"
-                            ? "bg-green-500"
-                            : atleta.documentos?.autorizacao?.status === "pendente"
-                              ? "bg-yellow-500"
-                              : "bg-red-500"
-                        }
-                      >
-                        {atleta.documentos?.autorizacao?.status === "valido"
-                          ? "Válido"
-                          : atleta.documentos?.autorizacao?.status === "pendente"
-                            ? "Pendente"
-                            : "Vencido"}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <FileText className="h-4 w-4 mr-2 text-muted-foreground" />
-                        <span className="text-sm">Documentos Pessoais</span>
-                      </div>
-                      <Badge
-                        className={
-                          atleta.documentos?.documentosPessoais?.status === "valido"
-                            ? "bg-green-500"
-                            : atleta.documentos?.documentosPessoais?.status === "pendente"
-                              ? "bg-yellow-500"
-                              : "bg-red-500"
-                        }
-                      >
-                        {atleta.documentos?.documentosPessoais?.status === "valido"
-                          ? "Válido"
-                          : atleta.documentos?.documentosPessoais?.status === "pendente"
-                            ? "Pendente"
-                            : "Vencido"}
-                      </Badge>
-                    </div>
-                  </div>
-                  <Button
-                    variant="link"
-                    className="text-green-700 p-0 mt-2 w-full"
-                    onClick={() => setActiveTab("documentos")}
-                  >
-                    Ver todos os documentos
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="documentos">
-          <Card>
-            <CardHeader>
-              <CardTitle>Documentos do Atleta</CardTitle>
-              <CardDescription>Documentos e arquivos relacionados ao atleta</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <AtletaDocumentos atletaId={id} />
+                </div>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm text-gray-500">Altura</p>
+                  <p className="font-medium">{atleta.height ? `${atleta.height} cm` : "Não informado"}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Peso</p>
+                  <p className="font-medium">{atleta.weight ? `${atleta.weight} kg` : "Não informado"}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Última Avaliação</p>
+                  <p className="font-medium">
+                    {avaliacoes.length > 0 
+                      ? formatarData(avaliacoes[0].evaluation_date) 
+                      : "Nenhuma avaliação registrada"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Total de Avaliações</p>
+                  <p className="font-medium">{avaliacoes.length}</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        <TabsContent value="modalidades">
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Modalidades</CardTitle>
-                <CardDescription>Modalidades esportivas praticadas pelo atleta</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {atleta.modalidades.map((modalidade, index) => (
-                    <div key={index} className="flex items-start space-x-4 p-4 border rounded-md">
-                      <div className="h-12 w-12 rounded-md bg-gray-100 flex items-center justify-center">
-                        <Dumbbell className="h-6 w-6 text-gray-500" />
+          <Card>
+            <CardHeader>
+              <CardTitle>Histórico e Desempenho</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Tabs defaultValue="avaliacoes">
+                <TabsList className="w-full justify-start mb-4">
+                  <TabsTrigger value="avaliacoes" className="flex items-center gap-2">
+                    <Activity className="h-4 w-4" />
+                    Avaliações
+                  </TabsTrigger>
+                  <TabsTrigger value="calendario" className="flex items-center gap-2">
+                    <CalendarIcon className="h-4 w-4" />
+                    Agenda
+                  </TabsTrigger>
+                  <TabsTrigger value="conquistas" className="flex items-center gap-2">
+                    <Trophy className="h-4 w-4" />
+                    Conquistas
+                  </TabsTrigger>
+                  <TabsTrigger value="mensagens" className="flex items-center gap-2">
+                    <Message className="h-4 w-4" />
+                    Mensagens
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="avaliacoes" className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4">Progresso</h3>
+                      <div className="h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <RechartsBarChart data={dadosDesempenho}>
+                            <XAxis dataKey="name" />
+                            <YAxis />
+                            <Tooltip />
+                            <Bar dataKey="desempenho" fill="rgba(16, 185, 129, 0.8)" />
+                          </RechartsBarChart>
+                        </ResponsiveContainer>
                       </div>
-                      <div className="flex-1">
-                        <h3 className="font-medium">{modalidade}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {atleta.detalhesModalidades?.[modalidade]?.nivel || "Nível Intermediário"}
-                        </p>
-                        <div className="flex items-center mt-1">
-                          <Calendar className="h-4 w-4 mr-1 text-muted-foreground" />
-                          <span className="text-xs text-muted-foreground">
-                            Desde {atleta.detalhesModalidades?.[modalidade]?.desde || "Janeiro/2025"}
-                          </span>
-                        </div>
-                        <div className="mt-2">
-                          <Link href={`/dashboard/modalidades/${modalidade.toLowerCase().replace(/\s+/g, "-")}`}>
-                            <Button variant="outline" size="sm">
-                              Ver Modalidade
-                            </Button>
-                          </Link>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Times</CardTitle>
-                <CardDescription>Times e equipes que o atleta integra</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {atleta.times && atleta.times.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {atleta.times.map((time, index) => (
-                      <div key={index} className="flex items-start space-x-4 p-4 border rounded-md">
-                        <div className="h-12 w-12 rounded-md bg-gray-100 flex items-center justify-center">
-                          <Users className="h-6 w-6 text-gray-500" />
-                        </div>
-                        <div>
-                          <h3 className="font-medium">{time.nome}</h3>
-                          <p className="text-sm text-muted-foreground">{time.categoria}</p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Técnico: {time.tecnico} • {time.modalidade}
-                          </p>
-                          <div className="mt-2">
-                            <Link href={`/dashboard/times/${time.id}`}>
-                              <Button variant="outline" size="sm">
-                                Ver Time
-                              </Button>
-                            </Link>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex items-start space-x-4 p-4 border rounded-md">
-                    <div className="h-12 w-12 rounded-md bg-gray-100 flex items-center justify-center">
-                      <Users className="h-6 w-6 text-gray-500" />
                     </div>
                     <div>
-                      <h3 className="font-medium">Time de Natação Juvenil</h3>
-                      <p className="text-sm text-muted-foreground">Sub-17</p>
-                      <p className="text-xs text-muted-foreground mt-1">Técnico: Carlos Mendes • Natação</p>
-                      <div className="mt-2">
-                        <Link href="/dashboard/times/time-001">
-                          <Button variant="outline" size="sm">
-                            Ver Time
-                          </Button>
-                        </Link>
+                      <h3 className="text-lg font-semibold mb-4">Comparativo</h3>
+                      <div className="h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <RechartsRadarChart data={dadosRadar}>
+                            <PolarGrid />
+                            <PolarAngleAxis dataKey="subject" />
+                            <PolarRadiusAxis />
+                            <Radar name="Atual" dataKey="A" stroke="rgba(99, 102, 241, 1)" fill="rgba(99, 102, 241, 0.2)" />
+                            <Radar name="Anterior" dataKey="B" stroke="rgba(161, 161, 170, 1)" fill="rgba(161, 161, 170, 0.2)" />
+                            <Legend />
+                          </RechartsRadarChart>
+                        </ResponsiveContainer>
                       </div>
                     </div>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Projetos</CardTitle>
-                <CardDescription>Projetos que o atleta participa</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {atleta.projetos && atleta.projetos.length > 0 ? (
-                  <div className="space-y-4">
-                    {atleta.projetos.map((projeto, index) => (
-                      <div key={index} className="flex items-start justify-between border-b pb-4 last:border-0">
-                        <div>
-                          <h4 className="font-medium">{projeto.nome}</h4>
-                          <p className="text-sm text-muted-foreground">{projeto.descricao}</p>
-                          <div className="flex items-center mt-1">
-                            <Calendar className="h-4 w-4 mr-1 text-muted-foreground" />
-                            <span className="text-xs text-muted-foreground">
-                              {projeto.dataInicio} a {projeto.dataFim}
-                            </span>
-                          </div>
-                        </div>
-                        <Link href={`/dashboard/projetos/${projeto.id}`}>
-                          <Button variant="outline" size="sm">
-                            Ver Projeto
-                          </Button>
-                        </Link>
+                  
+                  <div>
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-lg font-semibold">Histórico de Avaliações</h3>
+                      <Link href="/dashboard/desempenho/nova-avaliacao">
+                        <Button size="sm" className="bg-green-700 hover:bg-green-600">
+                          Nova Avaliação
+                        </Button>
+                      </Link>
+                    </div>
+                    <div className="border rounded-md">
+                      <div className="grid grid-cols-4 gap-4 p-4 border-b font-medium">
+                        <div>Data</div>
+                        <div>Tipo</div>
+                        <div>Responsável</div>
+                        <div>Status</div>
                       </div>
-                    ))}
+                      <div className="divide-y">
+                        {avaliacoes.length > 0 ? (
+                          avaliacoes.map((avaliacao) => (
+                            <div key={avaliacao.id} className="grid grid-cols-4 gap-4 p-4 hover:bg-gray-50">
+                              <div>{format(new Date(avaliacao.evaluation_date), "dd/MM/yyyy")}</div>
+                              <div>{avaliacao.type}</div>
+                              <div>{typeof avaliacao.created_by === 'object' && avaliacao.created_by?.name || "Sistema"}</div>
+                              <div>
+                                <span className={`px-2 py-1 rounded-md text-xs ${
+                                  avaliacao.status === "completed" ? "bg-green-100 text-green-800" :
+                                  avaliacao.status === "cancelled" ? "bg-red-100 text-red-800" :
+                                  "bg-yellow-100 text-yellow-800"
+                                }`}>
+                                  {avaliacao.status === "completed" ? "Concluída" :
+                                   avaliacao.status === "pending" ? "Pendente" :
+                                   avaliacao.status === "cancelled" ? "Cancelada" : avaliacao.status}
+                                </span>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="p-4 text-center text-gray-500">
+                            Nenhuma avaliação registrada para este atleta
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <p className="text-muted-foreground">Este atleta não está associado a nenhum projeto.</p>
-                    <Link href="/dashboard/projetos">
-                      <Button className="mt-4 bg-green-700 hover:bg-green-600">Associar a Projeto</Button>
-                    </Link>
+                </TabsContent>
+                <TabsContent value="calendario">
+                  <div className="flex flex-col md:flex-row gap-6">
+                    <div className="md:w-1/2">
+                      <h3 className="text-lg font-semibold mb-4">Agenda</h3>
+                      <Calendar 
+                        mode="single"
+                        className="rounded-md border"
+                      />
+                    </div>
+                    <div className="md:w-1/2">
+                      <h3 className="text-lg font-semibold mb-4">Próximos Eventos</h3>
+                      <div className="border rounded-md divide-y">
+                        {/* Lista de eventos */}
+                        <div className="p-4 flex items-center justify-between">
+                          <div>
+                            <p className="font-medium">Treino de Natação</p>
+                            <p className="text-sm text-gray-500">10 de Junho, 14:00 - 16:00</p>
+                          </div>
+                          <Button variant="outline" size="sm">Ver</Button>
+                        </div>
+                        <div className="p-4 flex items-center justify-between">
+                          <div>
+                            <p className="font-medium">Avaliação Física</p>
+                            <p className="text-sm text-gray-500">15 de Junho, 09:00 - 10:30</p>
+                          </div>
+                          <Button variant="outline" size="sm">Ver</Button>
+                        </div>
+                        <div className="p-4 flex items-center justify-between">
+                          <div>
+                            <p className="font-medium">Competição Regional</p>
+                            <p className="text-sm text-gray-500">25 de Junho, Todo o dia</p>
+                          </div>
+                          <Button variant="outline" size="sm">Ver</Button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="historico">
-          <Card>
-            <CardHeader>
-              <CardTitle>Histórico do Atleta</CardTitle>
-              <CardDescription>Registro de participação em projetos, competições e modalidades</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <AtletaHistorico atletaId={id} />
+                </TabsContent>
+                <TabsContent value="conquistas">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <Card className="bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200">
+                      <CardContent className="p-6 flex items-center gap-4">
+                        <div className="bg-amber-500 rounded-full p-2 text-white">
+                          <Trophy className="h-6 w-6" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold">Campeonato Estadual</h4>
+                          <p className="text-sm">1º Lugar - 100m livre</p>
+                          <p className="text-xs text-gray-500">10/05/2023</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card className="bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200">
+                      <CardContent className="p-6 flex items-center gap-4">
+                        <div className="bg-gray-500 rounded-full p-2 text-white">
+                          <Trophy className="h-6 w-6" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold">Copa Regional</h4>
+                          <p className="text-sm">2º Lugar - Revezamento</p>
+                          <p className="text-xs text-gray-500">22/03/2023</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card className="bg-gradient-to-br from-amber-800/10 to-amber-700/20 border-amber-700/20">
+                      <CardContent className="p-6 flex items-center gap-4">
+                        <div className="bg-amber-700 rounded-full p-2 text-white">
+                          <Trophy className="h-6 w-6" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold">Troféu Excelência</h4>
+                          <p className="text-sm">3º Lugar - Classificação geral</p>
+                          <p className="text-xs text-gray-500">15/12/2022</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </TabsContent>
+                <TabsContent value="mensagens">
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-lg font-semibold">Mensagens</h3>
+                      <Button size="sm">Nova Mensagem</Button>
+                    </div>
+                    <div className="border rounded-md divide-y">
+                      <div className="p-4 hover:bg-gray-50">
+                        <div className="flex justify-between mb-1">
+                          <span className="font-medium">Confirmação de Treino</span>
+                          <span className="text-xs text-gray-500">21/05/2023</span>
+                        </div>
+                        <p className="text-sm">Olá! Estamos confirmando sua participação no treino especial de amanhã. Por favor, confirme sua presença.</p>
+                      </div>
+                      <div className="p-4 hover:bg-gray-50">
+                        <div className="flex justify-between mb-1">
+                          <span className="font-medium">Resultado da Avaliação</span>
+                          <span className="text-xs text-gray-500">15/05/2023</span>
+                        </div>
+                        <p className="text-sm">Sua avaliação física foi concluída. Os resultados estão disponíveis para visualização no sistema.</p>
+                      </div>
+                      <div className="p-4 hover:bg-gray-50">
+                        <div className="flex justify-between mb-1">
+                          <span className="font-medium">Inscrição em Competição</span>
+                          <span className="text-xs text-gray-500">02/05/2023</span>
+                        </div>
+                        <p className="text-sm">Você foi inscrito na competição regional que ocorrerá no próximo mês. Mais detalhes serão enviados em breve.</p>
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="desempenho">
-          <Card>
-            <CardHeader>
-              <CardTitle>Desempenho do Atleta</CardTitle>
-              <CardDescription>Avaliações e métricas de desempenho</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <AtletaDesempenho atletaId={id} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+        </div>
+      </div>
     </div>
-  )
-}
-
-function Trophy(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
-      <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
-      <path d="M4 22h16" />
-      <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
-      <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
-      <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
-    </svg>
   )
 }
