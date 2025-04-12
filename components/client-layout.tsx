@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { DashboardSidebar } from "@/components/dashboard-sidebar";
+import { MainSidebar } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
 import { 
   LogOut, 
@@ -10,7 +10,8 @@ import {
   Menu, 
   ChevronLeft, 
   ChevronRight, 
-  Loader2
+  Loader2,
+  Home
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -48,22 +49,50 @@ export function ClientLayout({ children }: ClientLayoutProps) {
     pathname === "/forgot-password" ||
     pathname === "/reset-password" ||
     pathname === "/_not-found";
+    
+  // Verificar se estamos no dashboard
+  const isDashboardPage = pathname?.startsWith('/dashboard') || 
+                          pathname?.startsWith('/portal-atleta') || 
+                          pathname?.startsWith('/espacos');
 
   // Gerar breadcrumbs baseado no pathname
   useEffect(() => {
     if (pathname) {
       const pathSegments = pathname.split('/').filter(segment => segment);
       
-      // Inicializa com Home/Dashboard
+      // Determina onde começar os breadcrumbs
+      let basePath = '/dashboard';
+      let baseLabel = 'Dashboard';
+      
+      if (pathname.startsWith('/portal-atleta')) {
+        basePath = '/portal-atleta';
+        baseLabel = 'Portal do Atleta';
+      } else if (pathname.startsWith('/espacos')) {
+        basePath = '/espacos';
+        baseLabel = 'Espaços';
+      }
+      
+      // Inicializa com Home
       const crumbs = [{
-        label: 'Dashboard',
+        label: 'Home',
         path: '/dashboard'
       }];
       
+      // Adiciona o segmento base se não for dashboard ou se não estiver na raiz do dashboard
+      if (baseLabel !== 'Dashboard' || pathname !== '/dashboard') {
+        crumbs.push({
+          label: baseLabel,
+          path: basePath
+        });
+      }
+      
       // Adiciona segmentos intermediários
-      let currentPath = '/dashboard';
+      let currentPath = basePath;
       pathSegments.forEach((segment, index) => {
-        if (index === 0 && segment === 'dashboard') return; // Ignora o primeiro segment se for dashboard
+        // Pula o primeiro segmento que já foi processado acima
+        if (index === 0 && (segment === 'dashboard' || segment === 'portal-atleta' || segment === 'espacos')) {
+          return;
+        }
         
         currentPath += `/${segment}`;
         crumbs.push({
@@ -124,22 +153,38 @@ export function ClientLayout({ children }: ClientLayoutProps) {
 
     // Layout completo para usuários autenticados
     return (
-      <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
-        {/* Sidebar para desktop */}
-        <div className="hidden md:block transition-all duration-300">
-          <SidebarProvider defaultOpen={!isSidebarCollapsed}>
-            <DashboardSidebar
-              userRole={userRole}
-              isCollapsed={isSidebarCollapsed}
-              onToggleCollapse={toggleSidebar}
-            />
-          </SidebarProvider>
+      <div className="flex min-h-screen bg-background">
+        {/* Sidebar para desktop - usando DashboardSidebar para páginas do dashboard */}
+        <div className={cn(
+          "hidden md:block transition-all duration-300",
+          !isDashboardPage && "md:w-64"
+        )}>
+          {isDashboardPage ? (
+            <SidebarProvider>
+              <MainSidebar
+                userRole={userRole}
+                isCollapsed={isSidebarCollapsed}
+                onToggleCollapse={toggleSidebar}
+              />
+            </SidebarProvider>
+          ) : (
+            <SidebarProvider defaultOpen={!isSidebarCollapsed}>
+              <MainSidebar
+                userRole={userRole}
+                isCollapsed={isSidebarCollapsed}
+                onToggleCollapse={toggleSidebar}
+              />
+            </SidebarProvider>
+          )}
         </div>
 
         {/* Conteúdo principal */}
-        <SidebarInset className="transition-all duration-300">
+        <div className={cn(
+          "flex-1 flex flex-col transition-all duration-300",
+          isDashboardPage && !isSidebarCollapsed ? "md:ml-64" : (isDashboardPage && isSidebarCollapsed ? "md:ml-16" : "")
+        )}>
           {/* Header */}
-          <header className="sticky top-0 z-50 flex h-16 items-center justify-between border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 md:px-6">
+          <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 md:px-6 shadow-sm">
             <div className="flex items-center gap-2">
               <Sheet>
                 <SheetTrigger asChild>
@@ -150,9 +195,15 @@ export function ClientLayout({ children }: ClientLayoutProps) {
                 </SheetTrigger>
                 <SheetContent side="left" className="w-72 p-0">
                   <ScrollArea className="h-full py-6">
-                    <SidebarProvider defaultOpen>
-                      <DashboardSidebar userRole={userRole} />
-                    </SidebarProvider>
+                    {isDashboardPage ? (
+                      <SidebarProvider>
+                        <MainSidebar userRole={userRole} />
+                      </SidebarProvider>
+                    ) : (
+                      <SidebarProvider defaultOpen>
+                        <MainSidebar userRole={userRole} />
+                      </SidebarProvider>
+                    )}
                   </ScrollArea>
                 </SheetContent>
               </Sheet>
@@ -171,9 +222,15 @@ export function ClientLayout({ children }: ClientLayoutProps) {
                 </Button>
               </div>
               
-              <div className="hidden md:block ml-2">
-                <Link href="/dashboard" className="flex items-center">
-                  <span className="font-bold text-xl">CFO</span>
+              <div className="flex items-center gap-2 ml-2">
+                <Button variant="ghost" size="icon" asChild className="h-9 w-9">
+                  <Link href="/dashboard">
+                    <Home className="h-5 w-5" />
+                  </Link>
+                </Button>
+                
+                <Link href="/dashboard" className="hidden md:flex items-center">
+                  <span className="font-bold text-xl text-primary">CFO</span>
                 </Link>
               </div>
             </div>
@@ -188,14 +245,16 @@ export function ClientLayout({ children }: ClientLayoutProps) {
                     size="icon"
                     className="rounded-full h-9 w-9 relative"
                   >
-                    <Avatar className="h-9 w-9">
+                    <Avatar className="h-9 w-9 border border-border hover:border-primary transition-colors">
                       <AvatarImage
                         src={user.profile_photo_url}
                         alt={user.name}
                       />
-                      <AvatarFallback>{user.name?.charAt(0)}</AvatarFallback>
+                      <AvatarFallback className="bg-primary/10 text-primary">
+                        {user.name?.charAt(0)}
+                      </AvatarFallback>
                     </Avatar>
-                    <span className="absolute top-0 right-0 h-2.5 w-2.5 rounded-full bg-green-500 ring ring-white" />
+                    <span className="absolute top-0 right-0 h-2.5 w-2.5 rounded-full bg-green-500 ring-1 ring-background" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
@@ -239,7 +298,7 @@ export function ClientLayout({ children }: ClientLayoutProps) {
 
           {/* Breadcrumbs */}
           {breadcrumbs.length > 1 && (
-            <div className="container px-4 md:px-6 py-3 border-b">
+            <div className="px-4 md:px-6 py-3 border-b bg-muted/30">
               <Breadcrumb>
                 <BreadcrumbList>
                   {breadcrumbs.map((crumb, index) => {
@@ -268,11 +327,11 @@ export function ClientLayout({ children }: ClientLayoutProps) {
 
           {/* Conteúdo */}
           <main className="flex-1">
-            <div className="container py-6 md:py-8 px-4 md:px-6">
+            <div className="py-6 md:py-8 px-4 md:px-6">
               {children}
             </div>
           </main>
-        </SidebarInset>
+        </div>
       </div>
     );
   } catch (error) {

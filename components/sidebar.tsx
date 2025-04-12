@@ -66,7 +66,7 @@ interface MenuItem {
   keywords?: string[]; // Para busca
 }
 
-export function DashboardSidebar({
+export function MainSidebar({
   userRole,
   isCollapsed = false,
   onToggleCollapse,
@@ -78,8 +78,20 @@ export function DashboardSidebar({
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [showFloatingButton, setShowFloatingButton] = useState(false);
+  const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { user, logout } = useAuth();
+  
+  // Inicializar menus expandidos com base no caminho atual
+  useEffect(() => {
+    const openStates: Record<string, boolean> = {};
+    menuItems.forEach(item => {
+      if (item.subItems && (pathname === item.href || pathname.startsWith(item.href + '/'))) {
+        openStates[item.href] = true;
+      }
+    });
+    setOpenMenus(openStates);
+  }, [pathname]);
   
   // Mostrar botão flutuante quando a sidebar estiver colapsada (após um delay)
   useEffect(() => {
@@ -218,6 +230,13 @@ export function DashboardSidebar({
     }
   };
   
+  const handleToggleSubmenu = (href: string) => {
+    setOpenMenus(prev => ({
+      ...prev,
+      [href]: !prev[href]
+    }));
+  };
+  
   const handleSearchFocus = () => {
     setIsSearchFocused(true);
   };
@@ -250,9 +269,9 @@ export function DashboardSidebar({
       {/* Sidebar principal */}
       <Sidebar 
         className={cn(
-          "border-r bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-all duration-300 ease-in-out",
+          "border-r bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-all duration-300 ease-in-out shadow-md",
           state === "expanded" ? "w-64" : "w-16",
-          "relative overflow-hidden shadow-md"
+          "h-screen fixed left-0 top-0 z-40 overflow-hidden"
         )}
       >
         <SidebarHeader className="flex justify-between items-center p-3 border-b">
@@ -337,7 +356,7 @@ export function DashboardSidebar({
           </div>
         </div>
 
-        <SidebarContent className="px-2 py-2">
+        <SidebarContent className="px-2 py-2 overflow-y-auto h-full">
           <AnimatePresence mode="wait">
             <motion.div
               key={`sidebar-content-${state}`}
@@ -349,6 +368,7 @@ export function DashboardSidebar({
               <SidebarMenu>
                 {filteredItems.map((item) => {
                   const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+                  const isOpen = openMenus[item.href] || false;
                   const Icon = item.icon;
                   const hasSubItems = item.subItems && item.subItems.length > 0;
                   const hasNotifications = item.notificationCount && item.notificationCount > 0;
@@ -358,66 +378,123 @@ export function DashboardSidebar({
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <SidebarMenuButton
-                              asChild
-                              isActive={isActive}
-                              className={cn(
-                                "group transition-all duration-200 my-1 rounded-md overflow-hidden",
-                                isActive 
-                                  ? "bg-primary/10 text-primary shadow-sm" 
-                                  : "hover:bg-muted"
-                              )}
-                            >
-                              <Link href={item.href} className="relative py-2">
-                                {isActive && (
-                                  <motion.div
-                                    layoutId="sidebar-active-indicator"
-                                    className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r-full"
-                                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                                  />
+                            {hasSubItems ? (
+                              <SidebarMenuButton
+                                isActive={isActive}
+                                className={cn(
+                                  "group transition-all duration-200 my-1 rounded-md overflow-hidden w-full",
+                                  isActive 
+                                    ? "bg-primary/10 text-primary shadow-sm" 
+                                    : "hover:bg-muted"
                                 )}
-                                
-                                <div className={cn(
-                                  "flex items-center gap-3",
-                                  state === "collapsed" && "justify-center"
-                                )}>
-                                  <Icon className={cn(
-                                    "h-5 w-5 transition-transform duration-200",
-                                    isActive ? "text-primary" : "text-muted-foreground",
-                                    state === "expanded" ? "mx-3" : "mx-auto"
-                                  )} />
-                                  
-                                  {hasNotifications && (
-                                    <Badge 
-                                      variant="destructive" 
-                                      className={cn(
-                                        "absolute -top-1 -right-1 h-4 min-w-4 px-0.5 flex items-center justify-center text-[10px] animate-pulse",
-                                        state === "expanded" && "right-3"
-                                      )}
-                                    >
-                                      {item.notificationCount}
-                                    </Badge>
+                                onClick={() => handleToggleSubmenu(item.href)}
+                              >
+                                <div className="relative py-2">
+                                  {isActive && (
+                                    <motion.div
+                                      layoutId="sidebar-active-indicator"
+                                      className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r-full"
+                                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                    />
                                   )}
                                   
-                                  {state === "expanded" && (
-                                    <span className={cn(
-                                      "transition-colors duration-200",
-                                      isActive ? "font-medium text-primary" : "text-foreground"
-                                    )}>
-                                      {item.title}
-                                    </span>
+                                  <div className={cn(
+                                    "flex items-center gap-3",
+                                    state === "collapsed" && "justify-center"
+                                  )}>
+                                    <Icon className={cn(
+                                      "h-5 w-5 transition-transform duration-200",
+                                      isActive ? "text-primary" : "text-muted-foreground",
+                                      state === "expanded" ? "mx-3" : "mx-auto"
+                                    )} />
+                                    
+                                    {hasNotifications && (
+                                      <Badge 
+                                        variant="destructive" 
+                                        className={cn(
+                                          "absolute -top-1 -right-1 h-4 min-w-4 px-0.5 flex items-center justify-center text-[10px] animate-pulse",
+                                          state === "expanded" && "right-3"
+                                        )}
+                                      >
+                                        {item.notificationCount}
+                                      </Badge>
+                                    )}
+                                    
+                                    {state === "expanded" && (
+                                      <span className={cn(
+                                        "transition-colors duration-200",
+                                        isActive ? "font-medium text-primary" : "text-foreground"
+                                      )}>
+                                        {item.title}
+                                      </span>
+                                    )}
+                                  </div>
+                                  
+                                  {hasSubItems && state === "expanded" && (
+                                    <ChevronDown 
+                                      className={cn(
+                                        "absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 transition-transform duration-300", 
+                                        isOpen && "transform rotate-180",
+                                        "text-muted-foreground"
+                                      )} 
+                                    />
                                   )}
                                 </div>
-                                
-                                {hasSubItems && state === "expanded" && (
-                                  <ChevronDown className={cn(
-                                    "absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 transition-transform", 
-                                    isActive && "transform rotate-180",
-                                    "text-muted-foreground"
-                                  )} />
+                              </SidebarMenuButton>
+                            ) : (
+                              <SidebarMenuButton
+                                asChild
+                                isActive={isActive}
+                                className={cn(
+                                  "group transition-all duration-200 my-1 rounded-md overflow-hidden",
+                                  isActive 
+                                    ? "bg-primary/10 text-primary shadow-sm" 
+                                    : "hover:bg-muted"
                                 )}
-                              </Link>
-                            </SidebarMenuButton>
+                              >
+                                <Link href={item.href} className="relative py-2">
+                                  {isActive && (
+                                    <motion.div
+                                      layoutId="sidebar-active-indicator"
+                                      className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r-full"
+                                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                    />
+                                  )}
+                                  
+                                  <div className={cn(
+                                    "flex items-center gap-3",
+                                    state === "collapsed" && "justify-center"
+                                  )}>
+                                    <Icon className={cn(
+                                      "h-5 w-5 transition-transform duration-200",
+                                      isActive ? "text-primary" : "text-muted-foreground",
+                                      state === "expanded" ? "mx-3" : "mx-auto"
+                                    )} />
+                                    
+                                    {hasNotifications && (
+                                      <Badge 
+                                        variant="destructive" 
+                                        className={cn(
+                                          "absolute -top-1 -right-1 h-4 min-w-4 px-0.5 flex items-center justify-center text-[10px] animate-pulse",
+                                          state === "expanded" && "right-3"
+                                        )}
+                                      >
+                                        {item.notificationCount}
+                                      </Badge>
+                                    )}
+                                    
+                                    {state === "expanded" && (
+                                      <span className={cn(
+                                        "transition-colors duration-200",
+                                        isActive ? "font-medium text-primary" : "text-foreground"
+                                      )}>
+                                        {item.title}
+                                      </span>
+                                    )}
+                                  </div>
+                                </Link>
+                              </SidebarMenuButton>
+                            )}
                           </TooltipTrigger>
                           {state === "collapsed" && (
                             <TooltipContent side="right">
@@ -433,49 +510,53 @@ export function DashboardSidebar({
                       </TooltipProvider>
 
                       {hasSubItems && state === "expanded" && item.subItems && (
-                        <SidebarMenuSub>
-                          <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: "auto" }}
-                            exit={{ opacity: 0, height: 0 }}
-                            transition={{ duration: 0.2 }}
-                          >
-                            {item.subItems.map((subItem) => {
-                              const isSubActive = pathname === subItem.href;
-                              
-                              return (
-                                <SidebarMenuSubItem key={subItem.href}>
-                                  <SidebarMenuSubButton
-                                    asChild
-                                    isActive={isSubActive}
-                                    className={cn(
-                                      "transition-colors duration-200 rounded-md overflow-hidden",
-                                      isSubActive 
-                                        ? "bg-primary/5 text-primary" 
-                                        : "hover:bg-muted"
-                                    )}
-                                  >
-                                    <Link href={subItem.href} className="pl-10 py-1.5 relative">
-                                      {isSubActive && (
-                                        <motion.div
-                                          layoutId="sidebar-subitem-indicator"
-                                          className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r-full opacity-70"
-                                          transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                                        />
-                                      )}
-                                      <span className={cn(
-                                        "text-sm",
-                                        isSubActive ? "font-medium text-primary" : "text-muted-foreground"
-                                      )}>
-                                        {subItem.title}
-                                      </span>
-                                    </Link>
-                                  </SidebarMenuSubButton>
-                                </SidebarMenuSubItem>
-                              );
-                            })}
-                          </motion.div>
-                        </SidebarMenuSub>
+                        <AnimatePresence>
+                          {isOpen && (
+                            <SidebarMenuSub>
+                              <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: "auto" }}
+                                exit={{ opacity: 0, height: 0 }}
+                                transition={{ duration: 0.2 }}
+                              >
+                                {item.subItems.map((subItem) => {
+                                  const isSubActive = pathname === subItem.href;
+
+                                  return (
+                                    <SidebarMenuSubItem key={subItem.href}>
+                                      <SidebarMenuSubButton
+                                        asChild
+                                        isActive={isSubActive}
+                                        className={cn(
+                                          "transition-colors duration-200 rounded-md overflow-hidden",
+                                          isSubActive 
+                                            ? "bg-primary/5 text-primary" 
+                                            : "hover:bg-muted"
+                                        )}
+                                      >
+                                        <Link href={subItem.href} className="pl-10 py-1.5 relative">
+                                          {isSubActive && (
+                                            <motion.div
+                                              layoutId="sidebar-subitem-indicator"
+                                              className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r-full opacity-70"
+                                              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                            />
+                                          )}
+                                          <span className={cn(
+                                            "text-sm",
+                                            isSubActive ? "font-medium text-primary" : "text-muted-foreground"
+                                          )}>
+                                            {subItem.title}
+                                          </span>
+                                        </Link>
+                                      </SidebarMenuSubButton>
+                                    </SidebarMenuSubItem>
+                                  );
+                                })}
+                              </motion.div>
+                            </SidebarMenuSub>
+                          )}
+                        </AnimatePresence>
                       )}
                     </SidebarMenuItem>
                   );
