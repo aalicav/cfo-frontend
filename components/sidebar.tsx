@@ -319,13 +319,13 @@ export function MainSidebar({
       {/* Sidebar principal */}
       <Sidebar 
         className={cn(
-          "border-r bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-all duration-300 ease-in-out shadow-md",
+          "border-r transition-all duration-300 ease-in-out shadow-md",
           isCollapsedSidebar ? "w-16" : "w-64",
           "h-screen fixed left-0 top-0 z-40 overflow-hidden",
-          "dark:bg-gray-900/90 dark:border-gray-800"
+          "bg-blue-950 border-blue-900 text-white"
         )}
       >
-        <SidebarHeader className="flex justify-between items-center p-3 border-b">
+        <SidebarHeader className="flex justify-between items-center p-3 border-b border-blue-900 bg-[#0c1c36]">
           <AnimatePresence mode="wait">
             {!isCollapsedSidebar ? (
               <motion.div
@@ -336,10 +336,10 @@ export function MainSidebar({
                 transition={{ duration: 0.3 }}
                 className="flex items-center gap-2"
               >
-                <span className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-white font-bold">
+                <span className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold">
                   C
                 </span>
-                <span className="font-bold text-xl text-primary">
+                <span className="font-bold text-xl text-white">
                   CFO
                 </span>
               </motion.div>
@@ -352,7 +352,7 @@ export function MainSidebar({
                 transition={{ duration: 0.3 }}
                 className="flex items-center justify-center"
               >
-                <span className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-white font-bold">
+                <span className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold">
                   C
                 </span>
               </motion.div>
@@ -365,13 +365,13 @@ export function MainSidebar({
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  className="rounded-full p-1 hover:bg-primary/10"
+                  className="rounded-full p-1 hover:bg-blue-800/50 text-white"
                   onClick={handleToggleSidebar}
                 >
                   {!isCollapsedSidebar ? (
-                    <ChevronLeftIcon className="h-5 w-5 text-muted-foreground" />
+                    <ChevronLeftIcon className="h-5 w-5 text-white" />
                   ) : (
-                    <ChevronRightIcon className="h-5 w-5 text-muted-foreground" />
+                    <ChevronRightIcon className="h-5 w-5 text-white" />
                   )}
                 </Button>
               </TooltipTrigger>
@@ -388,19 +388,19 @@ export function MainSidebar({
           isCollapsedSidebar && "hidden"
         )}>
           <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-white/60" />
             <Input
               ref={searchInputRef}
               type="search"
               placeholder="Pesquisar... (Ctrl+K)"
-              className="pl-8 bg-muted/40 focus:bg-background border-muted-foreground/20"
+              className="pl-8 bg-blue-900/40 focus:bg-blue-900/60 border-blue-800 text-white placeholder:text-white/60"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={handleSearchFocus}
               onBlur={handleSearchBlur}
             />
             {searchQuery && (
-              <div className="absolute top-full left-0 right-0 mt-1 px-2 py-1 text-xs text-muted-foreground">
+              <div className="absolute top-full left-0 right-0 mt-1 px-2 py-1 text-xs text-white/70">
                 {getSearchStatusText()}
               </div>
             )}
@@ -435,8 +435,8 @@ export function MainSidebar({
                                 className={cn(
                                   "group transition-all duration-200 my-1 rounded-md overflow-hidden w-full",
                                   isActive 
-                                    ? "bg-primary/10 text-primary shadow-sm" 
-                                    : "hover:bg-muted"
+                                    ? "bg-blue-700 text-white shadow-md" 
+                                    : "hover:bg-blue-900 text-white"
                                 )}
                                 onClick={() => handleToggleSubmenu(item.href)}
                               >
@@ -444,7 +444,7 @@ export function MainSidebar({
                                   {isActive && (
                                     <motion.div
                                       layoutId="sidebar-active-indicator"
-                                      className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r-full"
+                                      className="absolute left-0 top-0 bottom-0 w-1 bg-white rounded-r-full"
                                       transition={{ type: "spring", stiffness: 300, damping: 30 }}
                                     />
                                   )}
@@ -455,7 +455,7 @@ export function MainSidebar({
                                   )}>
                                     <Icon className={cn(
                                       "h-5 w-5 transition-transform duration-200",
-                                      isActive ? "text-primary" : "text-muted-foreground",
+                                      isActive ? "text-white" : "text-white/80",
                                       !isCollapsedSidebar ? "mx-3" : "mx-auto"
                                     )} />
                                     
@@ -474,7 +474,7 @@ export function MainSidebar({
                                     {!isCollapsedSidebar && (
                                       <span className={cn(
                                         "transition-colors duration-200",
-                                        isActive ? "font-medium text-primary" : "text-foreground"
+                                        isActive ? "font-medium text-white" : "text-white"
                                       )}>
                                         {item.title}
                                       </span>
@@ -486,7 +486,7 @@ export function MainSidebar({
                                       className={cn(
                                         "absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 transition-transform duration-300", 
                                         isOpen && "transform rotate-180",
-                                        "text-muted-foreground"
+                                        "text-white/80"
                                       )} 
                                     />
                                   )}
@@ -499,15 +499,15 @@ export function MainSidebar({
                                 className={cn(
                                   "group transition-all duration-200 my-1 rounded-md overflow-hidden",
                                   isActive 
-                                    ? "bg-primary/10 text-primary shadow-sm" 
-                                    : "hover:bg-muted"
+                                    ? "bg-blue-700 text-white shadow-md" 
+                                    : "hover:bg-blue-900 text-white"
                                 )}
                               >
                                 <Link href={item.href} className="relative py-2">
                                   {isActive && (
                                     <motion.div
                                       layoutId="sidebar-active-indicator"
-                                      className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r-full"
+                                      className="absolute left-0 top-0 bottom-0 w-1 bg-white rounded-r-full"
                                       transition={{ type: "spring", stiffness: 300, damping: 30 }}
                                     />
                                   )}
@@ -518,7 +518,7 @@ export function MainSidebar({
                                   )}>
                                     <Icon className={cn(
                                       "h-5 w-5 transition-transform duration-200",
-                                      isActive ? "text-primary" : "text-muted-foreground",
+                                      isActive ? "text-white" : "text-white/80",
                                       !isCollapsedSidebar ? "mx-3" : "mx-auto"
                                     )} />
                                     
@@ -537,7 +537,7 @@ export function MainSidebar({
                                     {!isCollapsedSidebar && (
                                       <span className={cn(
                                         "transition-colors duration-200",
-                                        isActive ? "font-medium text-primary" : "text-foreground"
+                                        isActive ? "font-medium text-white" : "text-white"
                                       )}>
                                         {item.title}
                                       </span>
@@ -581,21 +581,21 @@ export function MainSidebar({
                                         className={cn(
                                           "transition-colors duration-200 rounded-md overflow-hidden",
                                           isSubActive 
-                                            ? "bg-primary/5 text-primary" 
-                                            : "hover:bg-muted"
+                                            ? "bg-blue-800/60 text-white" 
+                                            : "hover:bg-blue-900/40 text-white/80 hover:text-white"
                                         )}
                                       >
                                         <Link href={subItem.href} className="pl-10 py-1.5 relative">
                                           {isSubActive && (
                                             <motion.div
                                               layoutId="sidebar-subitem-indicator"
-                                              className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r-full opacity-70"
+                                              className="absolute left-0 top-0 bottom-0 w-1 bg-white rounded-r-full opacity-70"
                                               transition={{ type: "spring", stiffness: 300, damping: 30 }}
                                             />
                                           )}
                                           <span className={cn(
                                             "text-sm",
-                                            isSubActive ? "font-medium text-primary" : "text-muted-foreground"
+                                            isSubActive ? "font-medium text-white" : "text-white/80"
                                           )}>
                                             {subItem.title}
                                           </span>
@@ -617,19 +617,19 @@ export function MainSidebar({
           </AnimatePresence>
         </SidebarContent>
 
-        <SidebarFooter className="mt-auto border-t py-3 bg-background/80 dark:bg-gray-900/90">
+        <SidebarFooter className="mt-auto border-t border-blue-900 py-3 bg-[#0c1c36]">
           {!isCollapsedSidebar ? (
             <div className="px-3 space-y-3">
               <div className="flex items-center space-x-3 px-2">
-                <Avatar className="h-10 w-10 border-2 border-primary/20">
+                <Avatar className="h-10 w-10 border-2 border-white/20">
                   <AvatarImage src={user?.profile_photo_url} alt={user?.name} />
-                  <AvatarFallback className="bg-primary/10 text-primary">
+                  <AvatarFallback className="bg-blue-700 text-white">
                     {user?.name?.charAt(0) || 'U'}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col">
-                  <span className="text-sm font-medium">{user?.name}</span>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-sm font-medium text-white">{user?.name}</span>
+                  <span className="text-xs text-white/80">
                     {userRole.charAt(0).toUpperCase() + userRole.slice(1)}
                   </span>
                 </div>
@@ -639,7 +639,7 @@ export function MainSidebar({
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="flex-1 bg-background dark:bg-gray-900"
+                  className="flex-1 bg-blue-800 text-white border-blue-700 hover:bg-blue-700"
                   asChild
                 >
                   <Link href="/dashboard/perfil">
@@ -651,7 +651,7 @@ export function MainSidebar({
                 <Button 
                   variant="outline" 
                   size="sm"
-                  className="flex-1 bg-background dark:bg-gray-900"
+                  className="flex-1 bg-blue-800 text-white border-blue-700 hover:bg-blue-700"
                   onClick={handleLogout}
                 >
                   <LogOut className="h-4 w-4 mr-1" />
@@ -659,7 +659,7 @@ export function MainSidebar({
                 </Button>
               </div>
               
-              <div className="text-xs text-center text-muted-foreground pt-2">
+              <div className="text-xs text-center text-white/50 pt-2">
                 v1.0.0 &copy; 2023 CFO
               </div>
             </div>
@@ -668,9 +668,9 @@ export function MainSidebar({
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Avatar className="h-8 w-8 border-2 border-primary/10 cursor-pointer hover:border-primary/30 transition-colors">
+                    <Avatar className="h-8 w-8 border-2 border-white/20 cursor-pointer hover:border-white/40 transition-colors">
                       <AvatarImage src={user?.profile_photo_url} alt={user?.name} />
-                      <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                      <AvatarFallback className="bg-blue-700 text-white text-xs">
                         {user?.name?.charAt(0) || 'U'}
                       </AvatarFallback>
                     </Avatar>
@@ -690,7 +690,7 @@ export function MainSidebar({
                     <Button 
                       variant="ghost" 
                       size="icon"
-                      className="h-8 w-8 rounded-full"
+                      className="h-8 w-8 rounded-full text-white hover:bg-blue-800/60"
                       onClick={handleLogout}
                     >
                       <LogOut className="h-4 w-4" />
@@ -721,7 +721,7 @@ export function MainSidebar({
                   <Button 
                     variant="default" 
                     size="sm" 
-                    className="h-8 rounded-r-full pl-1.5 pr-2 shadow-md border border-l-0 border-input"
+                    className="h-8 rounded-r-full pl-1.5 pr-2 shadow-md border border-l-0 border-blue-800 bg-blue-700 hover:bg-blue-600 text-white"
                     onClick={handleToggleSidebar}
                   >
                     <PanelLeftIcon className="h-4 w-4 mr-1" />

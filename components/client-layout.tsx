@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { MainSidebar } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
 import { 
@@ -11,7 +11,16 @@ import {
   ChevronLeft, 
   ChevronRight, 
   Loader2,
-  Home
+  Home,
+  Settings,
+  Users,
+  BarChart4,
+  ClipboardList,
+  Calendar,
+  Trophy,
+  BookOpen,
+  Building,
+  LucideIcon
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -36,11 +45,66 @@ interface ClientLayoutProps {
   children: React.ReactNode;
 }
 
+interface MenuItem {
+  title: string;
+  href: string;
+  icon: LucideIcon;
+  submenu?: MenuItem[];
+  exact?: boolean;
+}
+
+// Menu items para a versão mobile e desktop
+const menuItems: MenuItem[] = [
+  {
+    title: "Dashboard",
+    href: "/dashboard",
+    icon: BarChart4,
+    exact: true,
+  },
+  {
+    title: "Atletas",
+    href: "/dashboard/atletas",
+    icon: Users,
+  },
+  {
+    title: "Times",
+    href: "/dashboard/times",
+    icon: Building,
+  },
+  {
+    title: "Competições",
+    href: "/dashboard/competicoes",
+    icon: Trophy,
+  },
+  {
+    title: "Eventos",
+    href: "/dashboard/eventos",
+    icon: Calendar,
+  },
+  {
+    title: "Relatórios",
+    href: "/dashboard/relatorios",
+    icon: ClipboardList,
+  },
+  {
+    title: "Documentação",
+    href: "/dashboard/docs",
+    icon: BookOpen,
+  },
+  {
+    title: "Configurações",
+    href: "/dashboard/configuracoes",
+    icon: Settings,
+  },
+];
+
 export function ClientLayout({ children }: ClientLayoutProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isLogoutLoading, setIsLogoutLoading] = useState(false);
   const [breadcrumbs, setBreadcrumbs] = useState<{label: string; path: string}[]>([]);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   // Verificar se estamos em uma página de autenticação ou erro
   const isAuthPage =
@@ -52,6 +116,11 @@ export function ClientLayout({ children }: ClientLayoutProps) {
     
   // Verificar se estamos no dashboard
   const isDashboardPage = Boolean(pathname?.startsWith('/dashboard'));
+
+  // Fechar sidebar mobile ao mudar de rota
+  useEffect(() => {
+    setIsMobileSidebarOpen(false);
+  }, [pathname]);
 
   // Gerar breadcrumbs baseado no pathname
   useEffect(() => {
@@ -88,6 +157,14 @@ export function ClientLayout({ children }: ClientLayoutProps) {
       setBreadcrumbs(crumbs);
     }
   }, [pathname]);
+
+  // Verificar se um item está ativo
+  const isItemActive = (item: MenuItem) => {
+    if (item.exact) {
+      return pathname === item.href;
+    }
+    return pathname === item.href || pathname?.startsWith(item.href + '/');
+  };
 
   // Para páginas de autenticação, renderizar diretamente o conteúdo
   if (isAuthPage) {
@@ -141,7 +218,10 @@ export function ClientLayout({ children }: ClientLayoutProps) {
         {/* SidebarProvider envolvendo todo o layout para compartilhar o estado */}
         <SidebarProvider>
           {/* Sidebar para desktop */}
-          <div className="hidden md:block">
+          <div className={cn(
+            "hidden md:block transition-all duration-300 fixed top-0 left-0 bottom-0 z-40 bg-blue-950 border-r border-blue-900 shadow-md",
+            isSidebarCollapsed ? "w-[80px]" : "w-[240px]"
+          )}>
             <MainSidebar
               userRole={userRole}
               isCollapsed={isSidebarCollapsed}
@@ -152,22 +232,120 @@ export function ClientLayout({ children }: ClientLayoutProps) {
           {/* Conteúdo principal */}
           <div className={cn(
             "flex-1 flex flex-col transition-all duration-300",
-            isSidebarCollapsed ? "md:ml-16" : "md:ml-64"
+            isSidebarCollapsed ? "md:pl-[80px]" : "md:pl-[240px]"
           )}>
             {/* Header */}
             <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 md:px-6 shadow-sm">
               <div className="flex items-center gap-2">
-                <Sheet>
+                <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
                   <SheetTrigger asChild>
-                    <Button variant="ghost" size="icon" className="md:hidden">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="md:hidden"
+                    >
                       <Menu className="h-5 w-5" />
                       <span className="sr-only">Menu</span>
                     </Button>
                   </SheetTrigger>
-                  <SheetContent side="left" className="w-72 p-0">
-                    <ScrollArea className="h-full py-6">
-                      <MainSidebar userRole={userRole} />
-                    </ScrollArea>
+                  <SheetContent 
+                    side="left" 
+                    className="w-[280px] p-0 z-50 bg-blue-950" 
+                  >
+                    {/* Menu Mobile Estilizado */}
+                    <div className="h-full flex flex-col">
+                      <div className="p-6 border-b border-blue-900 bg-[#0c1c36] flex items-center">
+                        <Link href="/dashboard" onClick={() => setIsMobileSidebarOpen(false)} className="flex items-center">
+                          <span className="font-bold text-2xl text-white">CFO</span>
+                          <span className="ml-2 text-sm text-white/90">Centro de Formação Olímpica</span>
+                        </Link>
+                      </div>
+                      <ScrollArea className="flex-1 p-4">
+                        <div className="py-2">
+                          <h4 className="mb-2 px-2 text-xs font-semibold text-white/90 uppercase tracking-wider">
+                            Menu Principal
+                          </h4>
+                          <nav className="space-y-1.5">
+                            {menuItems.map((item) => {
+                              const active = isItemActive(item);
+                              return (
+                                <Link
+                                  key={item.href}
+                                  href={item.href}
+                                  onClick={() => setIsMobileSidebarOpen(false)}
+                                  className={cn(
+                                    "flex items-center gap-3 px-3.5 py-2.5 rounded-md text-sm font-medium transition-all duration-200 group relative",
+                                    active 
+                                      ? "bg-blue-700 text-white shadow-md" 
+                                      : "text-white hover:bg-blue-900 hover:text-white"
+                                  )}
+                                >
+                                  <item.icon className={cn(
+                                    "h-5 w-5 transition-colors",
+                                    active 
+                                      ? "text-white" 
+                                      : "text-white/90 group-hover:text-white"
+                                  )} />
+                                  <span>{item.title}</span>
+                                  {active && (
+                                    <span className="absolute right-2 top-1/2 transform -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-white"></span>
+                                  )}
+                                </Link>
+                              );
+                            })}
+                          </nav>
+                        </div>
+                      </ScrollArea>
+                      <div className="p-4 border-t border-blue-900 bg-[#0c1c36]">
+                        <div className="flex items-center gap-3 mb-3 px-3 py-2">
+                          <Avatar className="h-10 w-10 border-2 border-white/20">
+                            <AvatarFallback className="bg-blue-700 text-white font-medium">
+                              {user?.name?.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-white truncate">{user.name}</p>
+                            <p className="text-xs text-white/80">{userRole.charAt(0).toUpperCase() + userRole.slice(1)}</p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button 
+                            variant="outline" 
+                            className="w-full justify-center gap-2 bg-blue-700 text-white border-blue-800 hover:bg-blue-600 hover:text-white" 
+                            onClick={() => {
+                              setIsMobileSidebarOpen(false);
+                              router.push('/dashboard/perfil');
+                            }}
+                            size="sm"
+                          >
+                            <User className="h-4 w-4" />
+                            <span>Perfil</span>
+                          </Button>
+                          <Button 
+                            variant="destructive" 
+                            className="w-full justify-center gap-2" 
+                            onClick={() => {
+                              setIsMobileSidebarOpen(false);
+                              handleLogout();
+                            }}
+                            disabled={isLogoutLoading}
+                            size="sm"
+                          >
+                            {isLogoutLoading ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <span>Saindo...</span>
+                              </>
+                            ) : (
+                              <>
+                                <LogOut className="h-4 w-4" />
+                                <span>Sair</span>
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
                   </SheetContent>
                 </Sheet>
                 
