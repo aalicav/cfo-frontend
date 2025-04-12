@@ -12,11 +12,6 @@ import { useRouter } from 'next/navigation'
 import { Loader2, AlertCircle } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
-export const metadata: Metadata = {
-  title: 'Login | CFO',
-  description: 'Acesse sua conta no Centro de Formação Olímpica',
-}
-
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
