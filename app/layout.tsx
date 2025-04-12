@@ -32,11 +32,16 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <Providers>
-            <div className="relative min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-              <div className="absolute inset-0 bg-[url('/images/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))] dark:bg-[url('/images/grid-dark.svg')]" />
-              <div className="relative">
-                {children}
-              </div>
+            <div className="flex h-screen w-full bg-background overflow-hidden">
+              {/* O conteúdo principal será renderizado com o posicionamento adequado */}
+              <main className="flex-1 h-full overflow-auto">
+                <div className="relative min-h-screen">
+                  <div className="absolute inset-0 bg-[url('/images/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))] dark:bg-[url('/images/grid-dark.svg')] pointer-events-none" />
+                  <div className="relative z-10">
+                    {children}
+                  </div>
+                </div>
+              </main>
             </div>
             <Toaster />
           </Providers>
