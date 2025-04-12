@@ -12,8 +12,8 @@ export default function LoginLayout({
   children: React.ReactNode
 }) {
   return (
-    <AuthLayout>
+    <div className="flex flex-col items-center justify-center h-screen">
       {children}
-    </AuthLayout>
+    </div>
   )
 } 
