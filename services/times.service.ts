@@ -28,14 +28,14 @@ interface Atleta {
 }
 
 // Interface para membros do comitê técnico
-interface ComiteItem {
+export interface ComiteItem {
   id?: number
   name: string
   role: string
 }
 
 // Interface para locais de treino
-interface LocalTreino {
+export interface LocalTreino {
   id?: number
   name: string
   days: string
@@ -63,7 +63,7 @@ interface Evento {
 }
 
 // Interface para criação de um time
-interface CriarTimePayload {
+export interface CriarTimePayload {
   name: string
   modality: string
   category: string
@@ -81,6 +81,21 @@ interface ApiResponse<T> {
   message: string
 }
 
+// Interface para resposta paginada
+interface PaginatedResponse<T> {
+  data: {
+    current_page: number
+    data: T[]
+    from: number
+    last_page: number
+    per_page: number
+    to: number
+    total: number
+    items?: T[]
+  }
+  message: string
+}
+
 // Parâmetros para listar times
 interface ListarTimesParams {
   page?: number
@@ -95,26 +110,26 @@ interface ListarTimesParams {
 export const timesService = {
   // Buscar lista de times com filtros opcionais
   listar: async (params?: ListarTimesParams) => {
-    const response = await http.get<ApiResponse<Time[]>>('/teams', { params })
+    const response = await http.get<ApiResponse<PaginatedResponse<Time>>>('/teams', { params })
     return response.data?.data || []
   },
 
   // Obter um time específico pelo ID
   obter: async (id: number | string) => {
     const response = await http.get<ApiResponse<Time>>(`/teams/${id}`)
-    return response.data?.data as Time
+    return response.data?.data
   },
 
   // Criar um novo time
   criar: async (dados: CriarTimePayload) => {
     const response = await http.post<ApiResponse<Time>>('/teams', dados)
-    return response.data?.data as Time
+    return response.data?.data
   },
 
   // Atualizar dados de um time existente
   atualizar: async (id: number | string, dados: Partial<Time>) => {
     const response = await http.put<ApiResponse<Time>>(`/teams/${id}`, dados)
-    return response.data?.data as Time
+    return response.data?.data
   },
 
   // Excluir um time
@@ -127,7 +142,7 @@ export const timesService = {
     const response = await http.post<ApiResponse<Time>>(`/teams/${timeId}/athletes`, { 
       athletes: atletasIds 
     })
-    return response.data?.data as Time
+    return response.data?.data
   },
 
   // Gerenciar comitê técnico do time
@@ -135,7 +150,7 @@ export const timesService = {
     const response = await http.post<ApiResponse<Time>>(`/teams/${timeId}/technical-committee`, { 
       technical_committee: comite 
     })
-    return response.data?.data as Time
+    return response.data?.data
   },
 
   // Gerenciar locais de treino do time
@@ -143,18 +158,18 @@ export const timesService = {
     const response = await http.post<ApiResponse<Time>>(`/teams/${timeId}/training-locations`, { 
       training_locations: locais 
     })
-    return response.data?.data as Time
+    return response.data?.data
   },
 
   // Adicionar uma competição ao time
   adicionarCompeticao: async (timeId: number | string, competicao: Competicao) => {
     const response = await http.post<ApiResponse<Competicao>>(`/teams/${timeId}/competitions`, competicao)
-    return response.data?.data as Competicao
+    return response.data?.data
   },
 
   // Adicionar um evento ao time
   adicionarEvento: async (timeId: number | string, evento: Evento) => {
     const response = await http.post<ApiResponse<Evento>>(`/teams/${timeId}/events`, evento)
-    return response.data?.data as Evento
+    return response.data?.data
   }
 } 

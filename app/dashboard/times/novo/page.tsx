@@ -19,51 +19,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
-import { atletasService } from "@/services/api"
-import { Atleta } from "@/types"
-
-// Serviços simulados para modalidades e times até que sejam implementados na API
-const modalidadesService = {
-  listar: async () => {
-    // Simulação de resposta
-    return {
-      data: {
-        items: [
-          { id: "nat", name: "Natação" },
-          { id: "fut", name: "Futebol" },
-          { id: "vol", name: "Vôlei" },
-          { id: "bas", name: "Basquete" },
-          { id: "atl", name: "Atletismo" }
-        ]
-      }
-    }
-  }
-}
-
-const timesService = {
-  criar: async (data: any) => {
-    // Simulação de resposta
-    console.log("Time criado:", data)
-    return { success: true }
-  }
-}
-
-// Interface para modalidade
-interface Modalidade {
-  id: string;
-  name: string;
-}
-
-interface FormData {
-  nome: string;
-  modalidade: string;
-  categoria: string;
-  tecnico: string;
-  descricao: string;
-  atletas: string[];
-  comissaoTecnica: { nome: string; funcao: string }[];
-  locaisTreinamento: { espaco: string; dias: string; horario: string }[];
-}
+import { timesService, CriarTimePayload, ComiteItem, LocalTreino } from "@/services/times.service"
+import { Modalidade, modalidadesService } from "@/services/modalidades.service"
+import { atletasService } from "@/services/atletas.service"
+import { Atleta } from "@/services/api"
 
 export default function NovoTimePage() {
   const router = useRouter()
@@ -76,16 +35,20 @@ export default function NovoTimePage() {
   const [atletas, setAtletas] = useState<Atleta[]>([])
   const [carregandoModalidades, setCarregandoModalidades] = useState(true)
   const [carregandoAtletas, setCarregandoAtletas] = useState(false)
+  const [buscaAtleta, setBuscaAtleta] = useState("")
+  
+  // IDs temporários de atletas selecionados (como strings para facilitar comparações)
+  const [atletasSelecionados, setAtletasSelecionados] = useState<string[]>([])
 
-  const [formData, setFormData] = useState<FormData>({
-    nome: "",
-    modalidade: "",
-    categoria: "",
-    tecnico: "",
-    descricao: "",
-    atletas: [],
-    comissaoTecnica: [{ nome: "", funcao: "" }],
-    locaisTreinamento: [{ espaco: "", dias: "", horario: "" }],
+  const [formData, setFormData] = useState<CriarTimePayload>({
+    name: "",
+    modality: "",
+    category: "",
+    coach: "",
+    description: "",
+    athletes: [],
+    technical_committee: [{ name: "", role: "" }],
+    training_locations: [{ name: "", days: "", schedule: "" }],
   })
 
   useEffect(() => {
@@ -93,9 +56,7 @@ export default function NovoTimePage() {
       setCarregandoModalidades(true)
       try {
         const response = await modalidadesService.listar()
-        if (response && response.data) {
-          setModalidades(response.data.items || [])
-        }
+        setModalidades(response)
       } catch (error) {
         console.error("Erro ao carregar modalidades:", error)
         toast({
@@ -103,6 +64,7 @@ export default function NovoTimePage() {
           description: "Não foi possível carregar as modalidades. Tente novamente mais tarde.",
           variant: "destructive",
         })
+        setModalidades([])
       } finally {
         setCarregandoModalidades(false)
       }
@@ -111,34 +73,60 @@ export default function NovoTimePage() {
     carregarModalidades()
   }, [toast])
 
-  useEffect(() => {
-    const carregarAtletas = async () => {
-      if (!formData.modalidade) return
-      
-      setCarregandoAtletas(true)
-      try {
-        const response = await atletasService.listar({
-          modality: formData.modalidade
-        })
-        if (response && response.data) {
-          setAtletas(response.data.items || [])
-        }
-      } catch (error) {
-        console.error("Erro ao carregar atletas:", error)
-        toast({
-          title: "Erro",
-          description: "Não foi possível carregar os atletas. Tente novamente mais tarde.",
-          variant: "destructive",
-        })
-      } finally {
-        setCarregandoAtletas(false)
-      }
-    }
+  // Função para carregar atletas com termo de busca opcional
+  const carregarAtletas = async (termoBusca?: string) => {
+    if (!formData.modality) return
+    
+    setCarregandoAtletas(true)
+    try {
+      // Usar o serviço real de atletas com o termo de busca
+      const response = await atletasService.listar({
+        status: 'ativo',
+        search: termoBusca || undefined, // Enviar apenas se tiver algum valor
+      });
 
-    if (formData.modalidade) {
-      carregarAtletas()
+      // Garantir que response não seja undefined
+      if (!response) {
+        setAtletas([]);
+        return;
+      }
+      
+      setAtletas(response);
+    } catch (error) {
+      console.error("Erro ao carregar atletas:", error)
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar os atletas. Tente novamente mais tarde.",
+        variant: "destructive",
+      })
+      setAtletas([])
+    } finally {
+      setCarregandoAtletas(false)
     }
-  }, [formData.modalidade, toast])
+  }
+
+  // Efeito para carregar atletas quando a modalidade muda
+  useEffect(() => {
+    if (formData.modality) {
+      carregarAtletas(buscaAtleta);
+    }
+  }, [formData.modality, toast]);
+
+  // Lidar com mudanças no campo de busca
+  const handleBuscaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setBuscaAtleta(e.target.value);
+  };
+
+  // Função para realizar a busca
+  const realizarBusca = () => {
+    carregarAtletas(buscaAtleta);
+  };
+
+  // Função para limpar a busca
+  const limparBusca = () => {
+    setBuscaAtleta("");
+    carregarAtletas("");
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -149,58 +137,60 @@ export default function NovoTimePage() {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleAtletaToggle = (atletaId: string) => {
-    setFormData((prev) => {
-      const atletas = [...prev.atletas]
-      if (atletas.includes(atletaId)) {
-        return { ...prev, atletas: atletas.filter((id) => id !== atletaId) }
+  const handleAtletaToggle = (atletaId: string | number) => {
+    const id = atletaId.toString();
+    
+    // Atualizar lista de IDs selecionados
+    setAtletasSelecionados(prev => {
+      if (prev.includes(id)) {
+        return prev.filter(itemId => itemId !== id);
       } else {
-        return { ...prev, atletas: [...atletas, atletaId] }
+        return [...prev, id];
       }
-    })
+    });
   }
 
-  const handleComissaoTecnicaChange = (index: number, field: string, value: string) => {
-    const newComissao = [...formData.comissaoTecnica]
+  const handleComissaoTecnicaChange = (index: number, field: keyof ComiteItem, value: string) => {
+    const newComissao = [...(formData.technical_committee || [])]
     newComissao[index] = { ...newComissao[index], [field]: value }
-    setFormData((prev) => ({ ...prev, comissaoTecnica: newComissao }))
+    setFormData((prev) => ({ ...prev, technical_committee: newComissao }))
   }
 
   const addComissaoTecnica = () => {
     setFormData((prev) => ({
       ...prev,
-      comissaoTecnica: [...prev.comissaoTecnica, { nome: "", funcao: "" }],
+      technical_committee: [...(prev.technical_committee || []), { name: "", role: "" }],
     }))
   }
 
   const removeComissaoTecnica = (index: number) => {
-    const newComissao = [...formData.comissaoTecnica]
+    const newComissao = [...(formData.technical_committee || [])]
     newComissao.splice(index, 1)
     setFormData((prev) => ({
       ...prev,
-      comissaoTecnica: newComissao.length ? newComissao : [{ nome: "", funcao: "" }],
+      technical_committee: newComissao.length ? newComissao : [{ name: "", role: "" }],
     }))
   }
 
-  const handleLocalTreinamentoChange = (index: number, field: string, value: string) => {
-    const newLocais = [...formData.locaisTreinamento]
+  const handleLocalTreinamentoChange = (index: number, field: keyof LocalTreino, value: string) => {
+    const newLocais = [...(formData.training_locations || [])]
     newLocais[index] = { ...newLocais[index], [field]: value }
-    setFormData((prev) => ({ ...prev, locaisTreinamento: newLocais }))
+    setFormData((prev) => ({ ...prev, training_locations: newLocais }))
   }
 
   const addLocalTreinamento = () => {
     setFormData((prev) => ({
       ...prev,
-      locaisTreinamento: [...prev.locaisTreinamento, { espaco: "", dias: "", horario: "" }],
+      training_locations: [...(prev.training_locations || []), { name: "", days: "", schedule: "" }],
     }))
   }
 
   const removeLocalTreinamento = (index: number) => {
-    const newLocais = [...formData.locaisTreinamento]
+    const newLocais = [...(formData.training_locations || [])]
     newLocais.splice(index, 1)
     setFormData((prev) => ({
       ...prev,
-      locaisTreinamento: newLocais.length ? newLocais : [{ espaco: "", dias: "", horario: "" }],
+      training_locations: newLocais.length ? newLocais : [{ name: "", days: "", schedule: "" }],
     }))
   }
 
@@ -209,7 +199,7 @@ export default function NovoTimePage() {
     setIsSubmitting(true)
 
     // Validação básica
-    if (!formData.nome || !formData.modalidade || !formData.categoria || !formData.tecnico) {
+    if (!formData.name || !formData.modality || !formData.category || !formData.coach) {
       toast({
         title: "Erro de validação",
         description: "Por favor, preencha todos os campos obrigatórios.",
@@ -220,30 +210,46 @@ export default function NovoTimePage() {
     }
 
     try {
-      const timeData = {
-        nome: formData.nome,
-        modalidade: formData.modalidade,
-        categoria: formData.categoria,
-        tecnico: formData.tecnico,
-        descricao: formData.descricao,
-        atletas: formData.atletas,
-        comissaoTecnica: formData.comissaoTecnica,
-        locaisTreinamento: formData.locaisTreinamento,
-        dataCriacao: format(dataCriacao, "yyyy-MM-dd")
+      // Filtrar comissão técnica e locais de treinamento com campos vazios
+      const comissaoTecnica = (formData.technical_committee || [])
+        .filter(item => item.name.trim() !== "" && item.role.trim() !== "")
+
+      const locaisTreinamento = (formData.training_locations || [])
+        .filter(item => item.name.trim() !== "")
+
+      // Converter IDs de atletas para números, com validação adequada
+      const atletasIds = atletasSelecionados
+        .map((id: string) => {
+          const numId = parseInt(id);
+          // Validar se é um número válido
+          return isNaN(numId) ? null : numId;
+        })
+        .filter((id: number | null): id is number => id !== null); // Type guard para garantir que só temos números
+
+      // Dados finais para envio
+      const timeData: CriarTimePayload = {
+        ...formData,
+        creation_date: format(dataCriacao, "yyyy-MM-dd"),
+        athletes: atletasIds,
+        technical_committee: comissaoTecnica,
+        training_locations: locaisTreinamento,
       }
       
-      await timesService.criar(timeData)
+      console.log("Enviando dados para o backend:", timeData)
+      const result = await timesService.criar(timeData)
       
       toast({
         title: "Time cadastrado com sucesso",
         description: "O novo time foi adicionado ao sistema.",
       })
+      
+      // Redirecionar para a página de detalhes do time criado ou para a lista
       router.push("/dashboard/times")
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao cadastrar time:", error)
       toast({
         title: "Erro ao cadastrar time",
-        description: "Ocorreu um erro ao cadastrar o time. Tente novamente mais tarde.",
+        description: error?.response?.data?.message || "Ocorreu um erro ao cadastrar o time. Tente novamente mais tarde.",
         variant: "destructive",
       })
     } finally {
@@ -292,11 +298,11 @@ export default function NovoTimePage() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="nome">Nome do Time *</Label>
+                    <Label htmlFor="name">Nome do Time *</Label>
                     <Input
-                      id="nome"
-                      name="nome"
-                      value={formData.nome}
+                      id="name"
+                      name="name"
+                      value={formData.name}
                       onChange={handleChange}
                       placeholder="Ex: Time de Natação Juvenil"
                       required
@@ -304,12 +310,12 @@ export default function NovoTimePage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="modalidade">Modalidade *</Label>
+                    <Label htmlFor="modality">Modalidade *</Label>
                     <Select
-                      value={formData.modalidade}
-                      onValueChange={(value) => handleSelectChange("modalidade", value)}
+                      value={formData.modality}
+                      onValueChange={(value) => handleSelectChange("modality", value)}
                     >
-                      <SelectTrigger id="modalidade">
+                      <SelectTrigger id="modality">
                         <SelectValue placeholder="Selecione a modalidade" />
                       </SelectTrigger>
                       <SelectContent>
@@ -317,7 +323,7 @@ export default function NovoTimePage() {
                           <SelectItem value="carregando" disabled>Carregando...</SelectItem>
                         ) : modalidades.length > 0 ? (
                           modalidades.map((modalidade) => (
-                            <SelectItem key={modalidade.id} value={modalidade.id}>
+                            <SelectItem key={modalidade.id.toString()} value={modalidade.id.toString()}>
                               {modalidade.name}
                             </SelectItem>
                           ))
@@ -329,12 +335,12 @@ export default function NovoTimePage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="categoria">Categoria *</Label>
+                    <Label htmlFor="category">Categoria *</Label>
                     <Select
-                      value={formData.categoria}
-                      onValueChange={(value) => handleSelectChange("categoria", value)}
+                      value={formData.category}
+                      onValueChange={(value) => handleSelectChange("category", value)}
                     >
-                      <SelectTrigger id="categoria">
+                      <SelectTrigger id="category">
                         <SelectValue placeholder="Selecione a categoria" />
                       </SelectTrigger>
                       <SelectContent>
@@ -350,11 +356,11 @@ export default function NovoTimePage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="tecnico">Técnico Responsável *</Label>
+                    <Label htmlFor="coach">Técnico Responsável *</Label>
                     <Input
-                      id="tecnico"
-                      name="tecnico"
-                      value={formData.tecnico}
+                      id="coach"
+                      name="coach"
+                      value={formData.coach}
                       onChange={handleChange}
                       placeholder="Nome do técnico responsável"
                       required
@@ -383,11 +389,11 @@ export default function NovoTimePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="descricao">Descrição</Label>
+                  <Label htmlFor="description">Descrição</Label>
                   <Textarea
-                    id="descricao"
-                    name="descricao"
-                    value={formData.descricao}
+                    id="description"
+                    name="description"
+                    value={formData.description}
                     onChange={handleChange}
                     placeholder="Descreva o time, seus objetivos e características..."
                     className="min-h-[100px]"
@@ -410,48 +416,86 @@ export default function NovoTimePage() {
                 <CardDescription>Selecione os atletas que compõem o time</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {formData.modalidade ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {carregandoAtletas ? (
-                      <div className="col-span-full text-center py-8">
-                        <p className="text-muted-foreground">Carregando atletas...</p>
-                      </div>
-                    ) : atletas.length > 0 ? (
-                      atletas.map((atleta) => (
-                        <div
-                          key={atleta.id}
-                          className={`border rounded-md p-4 cursor-pointer transition-colors ${
-                            formData.atletas.includes(atleta.id)
-                              ? "border-green-500 bg-green-50"
-                              : "hover:border-gray-400"
-                          }`}
-                          onClick={() => handleAtletaToggle(atleta.id)}
+                {formData.modality ? (
+                  <>
+                    {/* Campo de busca de atletas */}
+                    <div className="relative mb-4">
+                      <div className="flex space-x-2">
+                        <div className="flex-1">
+                          <Input
+                            placeholder="Buscar atletas por nome..."
+                            value={buscaAtleta}
+                            onChange={handleBuscaChange}
+                            onKeyDown={(e) => e.key === 'Enter' && realizarBusca()}
+                            className="w-full"
+                          />
+                        </div>
+                        <Button 
+                          type="button" 
+                          onClick={realizarBusca}
+                          variant="secondary"
                         >
-                          <div className="flex items-center gap-2">
-                            <Checkbox
-                              checked={formData.atletas.includes(atleta.id)}
-                              onCheckedChange={() => handleAtletaToggle(atleta.id)}
-                            />
-                            <div>
-                              <h3 className="font-medium">{atleta.user?.name}</h3>
-                              <p className="text-sm text-muted-foreground">
-                                {atleta.birth_date && new Date().getFullYear() - new Date(atleta.birth_date).getFullYear()} anos • {atleta.group || 'Sem categoria'}
-                              </p>
+                          Buscar
+                        </Button>
+                        {buscaAtleta && (
+                          <Button 
+                            type="button" 
+                            onClick={limparBusca} 
+                            variant="outline"
+                          >
+                            Limpar
+                          </Button>
+                        )}
+                      </div>
+                      {buscaAtleta && (
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Buscando por: "{buscaAtleta}"
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {carregandoAtletas ? (
+                        <div className="col-span-full text-center py-8">
+                          <p className="text-muted-foreground">Carregando atletas...</p>
+                        </div>
+                      ) : atletas.length > 0 ? (
+                        atletas.map((atleta) => (
+                          <div
+                            key={atleta.id.toString()}
+                            className={`border rounded-md p-4 cursor-pointer transition-colors ${
+                              atletasSelecionados.includes(atleta.id.toString())
+                                ? "border-green-500 bg-green-50"
+                                : "hover:border-gray-400"
+                            }`}
+                            onClick={() => handleAtletaToggle(atleta.id)}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Checkbox
+                                checked={atletasSelecionados.includes(atleta.id.toString())}
+                                onCheckedChange={() => handleAtletaToggle(atleta.id)}
+                              />
+                              <div>
+                                <h3 className="font-medium">{atleta.nome}</h3>
+                                <p className="text-sm text-muted-foreground">
+                                  {atleta.dataNascimento && new Date().getFullYear() - new Date(atleta.dataNascimento).getFullYear()} anos • {atleta.status || 'Sem status'}
+                                </p>
+                              </div>
                             </div>
                           </div>
+                        ))
+                      ) : (
+                        <div className="col-span-full text-center py-8">
+                          <p className="text-muted-foreground">
+                            Não há atletas cadastrados para a modalidade selecionada.
+                          </p>
+                          <Link href="/dashboard/atletas/novo">
+                            <Button className="mt-4 bg-green-700 hover:bg-green-600">Cadastrar Novo Atleta</Button>
+                          </Link>
                         </div>
-                      ))
-                    ) : (
-                      <div className="col-span-full text-center py-8">
-                        <p className="text-muted-foreground">
-                          Não há atletas cadastrados para a modalidade selecionada.
-                        </p>
-                        <Link href="/dashboard/atletas/novo">
-                          <Button className="mt-4 bg-green-700 hover:bg-green-600">Cadastrar Novo Atleta</Button>
-                        </Link>
-                      </div>
-                    )}
-                  </div>
+                      )}
+                    </div>
+                  </>
                 ) : (
                   <div className="text-center py-8">
                     <p className="text-muted-foreground">Selecione uma modalidade para ver os atletas disponíveis.</p>
@@ -485,10 +529,10 @@ export default function NovoTimePage() {
               <CardContent className="space-y-6">
                 <div className="p-4 border rounded-md bg-gray-50">
                   <h3 className="font-medium">Técnico Principal</h3>
-                  <p className="text-sm text-muted-foreground">{formData.tecnico || "Não definido"}</p>
+                  <p className="text-sm text-muted-foreground">{formData.coach || "Não definido"}</p>
                 </div>
 
-                {formData.comissaoTecnica.map((membro, index) => (
+                {formData.technical_committee?.map((membro, index) => (
                   <div key={index} className="border rounded-md p-4 space-y-4">
                     <div className="flex justify-between items-start">
                       <h3 className="font-medium">Membro {index + 1}</h3>
@@ -497,7 +541,7 @@ export default function NovoTimePage() {
                         variant="ghost"
                         size="icon"
                         onClick={() => removeComissaoTecnica(index)}
-                        disabled={formData.comissaoTecnica.length === 1}
+                        disabled={(formData.technical_committee?.length || 0) <= 1}
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -508,8 +552,8 @@ export default function NovoTimePage() {
                         <Label htmlFor={`membro-${index}-nome`}>Nome</Label>
                         <Input
                           id={`membro-${index}-nome`}
-                          value={membro.nome}
-                          onChange={(e) => handleComissaoTecnicaChange(index, "nome", e.target.value)}
+                          value={membro.name}
+                          onChange={(e) => handleComissaoTecnicaChange(index, "name", e.target.value)}
                           placeholder="Nome do membro"
                         />
                       </div>
@@ -518,8 +562,8 @@ export default function NovoTimePage() {
                         <Label htmlFor={`membro-${index}-funcao`}>Função</Label>
                         <Input
                           id={`membro-${index}-funcao`}
-                          value={membro.funcao}
-                          onChange={(e) => handleComissaoTecnicaChange(index, "funcao", e.target.value)}
+                          value={membro.role}
+                          onChange={(e) => handleComissaoTecnicaChange(index, "role", e.target.value)}
                           placeholder="Ex: Assistente Técnico, Preparador Físico"
                         />
                       </div>
@@ -551,7 +595,7 @@ export default function NovoTimePage() {
                 <CardDescription>Defina onde e quando os treinos acontecem</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {formData.locaisTreinamento.map((local, index) => (
+                {formData.training_locations?.map((local, index) => (
                   <div key={index} className="border rounded-md p-4 space-y-4">
                     <div className="flex justify-between items-start">
                       <h3 className="font-medium">Local de Treinamento {index + 1}</h3>
@@ -560,7 +604,7 @@ export default function NovoTimePage() {
                         variant="ghost"
                         size="icon"
                         onClick={() => removeLocalTreinamento(index)}
-                        disabled={formData.locaisTreinamento.length === 1}
+                        disabled={(formData.training_locations?.length || 0) <= 1}
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -571,8 +615,8 @@ export default function NovoTimePage() {
                         <Label htmlFor={`local-${index}-espaco`}>Espaço</Label>
                         <Input
                           id={`local-${index}-espaco`}
-                          value={local.espaco}
-                          onChange={(e) => handleLocalTreinamentoChange(index, "espaco", e.target.value)}
+                          value={local.name}
+                          onChange={(e) => handleLocalTreinamentoChange(index, "name", e.target.value)}
                           placeholder="Ex: Piscina Olímpica, Quadra Poliesportiva"
                         />
                       </div>
@@ -581,8 +625,8 @@ export default function NovoTimePage() {
                         <Label htmlFor={`local-${index}-dias`}>Dias da Semana</Label>
                         <Input
                           id={`local-${index}-dias`}
-                          value={local.dias}
-                          onChange={(e) => handleLocalTreinamentoChange(index, "dias", e.target.value)}
+                          value={local.days}
+                          onChange={(e) => handleLocalTreinamentoChange(index, "days", e.target.value)}
                           placeholder="Ex: Segunda e Quarta"
                         />
                       </div>
@@ -591,8 +635,8 @@ export default function NovoTimePage() {
                         <Label htmlFor={`local-${index}-horario`}>Horário</Label>
                         <Input
                           id={`local-${index}-horario`}
-                          value={local.horario}
-                          onChange={(e) => handleLocalTreinamentoChange(index, "horario", e.target.value)}
+                          value={local.schedule}
+                          onChange={(e) => handleLocalTreinamentoChange(index, "schedule", e.target.value)}
                           placeholder="Ex: 14:00 às 16:00"
                         />
                       </div>
