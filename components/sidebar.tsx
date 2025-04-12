@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Fragment, useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -10,36 +10,31 @@ import {
   Calendar,
   Settings,
   BarChart2,
-  FileText,
-  MessageSquare,
   Bell,
-  HelpCircle,
   ChevronDown,
-  ChevronRight,
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
   PanelLeftIcon,
   LogOut,
   UserCircle,
   Search,
+  ShieldAlert,
+  Briefcase,
+  Building,
+  BookOpen,
+  Target,
 } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
   SidebarHeader,
   SidebarFooter,
-  SidebarGroup,
-  SidebarGroupLabel,
-  SidebarGroupContent,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-  SidebarSeparator,
-  SidebarTrigger,
-  SidebarProvider,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
@@ -49,9 +44,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { notificacoesService } from "@/services/notificacoes.service";
 
 interface DashboardSidebarProps {
-  userRole: string;
+  userRole?: string;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
 }
@@ -67,20 +63,22 @@ interface MenuItem {
 }
 
 export function MainSidebar({
-  userRole,
+  userRole: propUserRole,
   isCollapsed = false,
   onToggleCollapse,
 }: DashboardSidebarProps) {
   const pathname = usePathname();
   const { state } = useSidebar();
-  const [unreadMessages, setUnreadMessages] = useState(3);
-  const [unreadNotifications, setUnreadNotifications] = useState(5);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [showFloatingButton, setShowFloatingButton] = useState(false);
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { user, logout } = useAuth();
+  
+  // Obter o papel do usuário do hook useAuth ou da prop
+  const userRole = user?.role || propUserRole || "user";
   
   // Inicializar menus expandidos com base no caminho atual
   useEffect(() => {
@@ -107,18 +105,25 @@ export function MainSidebar({
     return () => clearTimeout(timeout);
   }, [isCollapsed]);
 
-  // Simula obtenção de dados de notificações (em um caso real, viria de uma API)
+  // Buscar notificações não lidas
   useEffect(() => {
-    const interval = setInterval(() => {
-      // Simula flutuação nas notificações para demonstração
-      setUnreadMessages(Math.floor(Math.random() * 5));
-      setUnreadNotifications(Math.floor(Math.random() * 7));
-    }, 60000);
+    const fetchNotifications = async () => {
+      try {
+        const notificacoes = await notificacoesService.listarNaoLidas();
+        setUnreadNotifications(notificacoes?.length || 0);
+      } catch (error) {
+        console.error("Erro ao buscar notificações:", error);
+      }
+    };
 
+    // Buscar imediatamente e depois a cada minuto
+    fetchNotifications();
+    
+    const interval = setInterval(fetchNotifications, 60000);
     return () => clearInterval(interval);
   }, []);
 
-  // Atatalho de teclado para foco na busca
+  // Atalho de teclado para foco na busca
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ctrl+K ou Cmd+K para focar na busca
@@ -147,31 +152,75 @@ export function MainSidebar({
       title: "Dashboard",
       href: "/dashboard",
       icon: Home,
-      roles: ["admin", "coach", "athlete"],
+      roles: ["admin", "coach", "athlete", "user"],
       keywords: ["início", "home", "painel", "principal"],
     },
     {
       title: "Atletas",
-      href: "/portal-atleta",
+      href: "/dashboard/atletas",
       icon: Users,
       roles: ["admin", "coach"],
       keywords: ["jogadores", "esportistas", "alunos", "cadastro"],
       subItems: [
-        { title: "Lista de Atletas", href: "/portal-atleta/lista" },
-        { title: "Cadastrar Atleta", href: "/portal-atleta/cadastro" },
-        { title: "Desempenho", href: "/portal-atleta/desempenho" },
+        { title: "Lista de Atletas", href: "/dashboard/atletas" },
+        { title: "Cadastrar Atleta", href: "/dashboard/atletas/cadastro" },
+        { title: "Desempenho", href: "/dashboard/desempenho" },
+      ],
+    },
+    {
+      title: "Times",
+      href: "/dashboard/times",
+      icon: Target,
+      roles: ["admin", "coach"],
+      keywords: ["equipes", "grupos", "seleções"],
+      subItems: [
+        { title: "Todos os Times", href: "/dashboard/times" },
+        { title: "Criar Time", href: "/dashboard/times/criar" },
+      ],
+    },
+    {
+      title: "Modalidades",
+      href: "/dashboard/modalidades",
+      icon: BookOpen,
+      roles: ["admin", "coach"],
+      keywords: ["esportes", "atividades", "categorias"],
+      subItems: [
+        { title: "Ver Modalidades", href: "/dashboard/modalidades" },
+        { title: "Adicionar Modalidade", href: "/dashboard/modalidades/adicionar" },
+      ],
+    },
+    {
+      title: "Agendamentos",
+      href: "/dashboard/agendamentos",
+      icon: Calendar,
+      roles: ["admin", "coach", "athlete", "user"],
+      keywords: ["reservas", "calendário", "eventos", "horários", "programação"],
+      subItems: [
+        { title: "Próximos", href: "/dashboard/agendamentos" },
+        { title: "Criar Agendamento", href: "/dashboard/agendamentos/criar" },
+        { title: "Calendário", href: "/dashboard/agendamentos/calendario" },
       ],
     },
     {
       title: "Espaços",
-      href: "/espacos",
-      icon: Calendar,
-      roles: ["admin", "coach", "athlete"],
+      href: "/dashboard/espacos",
+      icon: Building,
+      roles: ["admin", "coach", "athlete", "user"],
       keywords: ["locais", "quadras", "instalações", "ambientes", "reservas"],
       subItems: [
-        { title: "Disponíveis", href: "/espacos/disponiveis" },
-        { title: "Reservados", href: "/espacos/reservados" },
-        { title: "Agendar", href: "/espacos/agendar" },
+        { title: "Disponíveis", href: "/dashboard/espacos" },
+        { title: "Solicitar Reserva", href: "/dashboard/espacos/reservar" },
+      ],
+    },
+    {
+      title: "Projetos",
+      href: "/dashboard/projetos",
+      icon: Briefcase,
+      roles: ["admin", "coach"],
+      keywords: ["iniciativas", "programas", "planos"],
+      subItems: [
+        { title: "Todos Projetos", href: "/dashboard/projetos" },
+        { title: "Novo Projeto", href: "/dashboard/projetos/novo" },
       ],
     },
     {
@@ -182,27 +231,26 @@ export function MainSidebar({
       keywords: ["estatísticas", "gráficos", "análises", "dados"],
     },
     {
-      title: "Documentos",
-      href: "/dashboard/documentos",
-      icon: FileText,
-      roles: ["admin", "coach", "athlete"],
-      keywords: ["arquivos", "pdfs", "contratos", "termos"],
-    },
-    {
-      title: "Mensagens",
-      href: "/dashboard/mensagens",
-      icon: MessageSquare,
-      roles: ["admin", "coach", "athlete"],
-      notificationCount: unreadMessages,
-      keywords: ["chat", "comunicação", "e-mail", "contato"],
-    },
-    {
       title: "Notificações",
       href: "/dashboard/notificacoes",
       icon: Bell,
-      roles: ["admin", "coach", "athlete"],
+      roles: ["admin", "coach", "athlete", "user"],
       notificationCount: unreadNotifications,
       keywords: ["alertas", "avisos", "informações", "updates"],
+    },
+    {
+      title: "Configurações",
+      href: "/dashboard/configuracoes",
+      icon: Settings,
+      roles: ["admin"],
+      keywords: ["ajustes", "preferências", "opções"],
+    },
+    {
+      title: "Área de Admin",
+      href: "/dashboard/admin",
+      icon: ShieldAlert,
+      roles: ["admin"],
+      keywords: ["administração", "controle", "gestão", "permissões"],
     },
   ];
 
@@ -264,19 +312,22 @@ export function MainSidebar({
     return "Pesquisar no menu";
   };
 
+  const isCollapsedSidebar = isCollapsed;
+
   return (
     <>
       {/* Sidebar principal */}
       <Sidebar 
         className={cn(
           "border-r bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-all duration-300 ease-in-out shadow-md",
-          state === "expanded" ? "w-64" : "w-16",
-          "h-screen fixed left-0 top-0 z-40 overflow-hidden"
+          isCollapsedSidebar ? "w-16" : "w-64",
+          "h-screen fixed left-0 top-0 z-40 overflow-hidden",
+          "dark:bg-gray-900/90 dark:border-gray-800"
         )}
       >
         <SidebarHeader className="flex justify-between items-center p-3 border-b">
           <AnimatePresence mode="wait">
-            {state === "expanded" ? (
+            {!isCollapsedSidebar ? (
               <motion.div
                 key="full-logo"
                 initial={{ opacity: 0, x: -20 }}
@@ -317,7 +368,7 @@ export function MainSidebar({
                   className="rounded-full p-1 hover:bg-primary/10"
                   onClick={handleToggleSidebar}
                 >
-                  {state === "expanded" ? (
+                  {!isCollapsedSidebar ? (
                     <ChevronLeftIcon className="h-5 w-5 text-muted-foreground" />
                   ) : (
                     <ChevronRightIcon className="h-5 w-5 text-muted-foreground" />
@@ -325,7 +376,7 @@ export function MainSidebar({
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="right">
-                {state === "expanded" ? "Recolher menu" : "Expandir menu"}
+                {!isCollapsedSidebar ? "Recolher menu" : "Expandir menu"}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -334,7 +385,7 @@ export function MainSidebar({
         {/* Pesquisa */}
         <div className={cn(
           "px-3 py-3",
-          state === "collapsed" && "hidden"
+          isCollapsedSidebar && "hidden"
         )}>
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -356,7 +407,7 @@ export function MainSidebar({
           </div>
         </div>
 
-        <SidebarContent className="px-2 py-2 overflow-y-auto h-full">
+        <SidebarContent className="px-2 py-2 overflow-y-auto h-[calc(100vh-13rem)]">
           <AnimatePresence mode="wait">
             <motion.div
               key={`sidebar-content-${state}`}
@@ -400,12 +451,12 @@ export function MainSidebar({
                                   
                                   <div className={cn(
                                     "flex items-center gap-3",
-                                    state === "collapsed" && "justify-center"
+                                    isCollapsedSidebar && "justify-center"
                                   )}>
                                     <Icon className={cn(
                                       "h-5 w-5 transition-transform duration-200",
                                       isActive ? "text-primary" : "text-muted-foreground",
-                                      state === "expanded" ? "mx-3" : "mx-auto"
+                                      !isCollapsedSidebar ? "mx-3" : "mx-auto"
                                     )} />
                                     
                                     {hasNotifications && (
@@ -413,14 +464,14 @@ export function MainSidebar({
                                         variant="destructive" 
                                         className={cn(
                                           "absolute -top-1 -right-1 h-4 min-w-4 px-0.5 flex items-center justify-center text-[10px] animate-pulse",
-                                          state === "expanded" && "right-3"
+                                          !isCollapsedSidebar && "right-3"
                                         )}
                                       >
                                         {item.notificationCount}
                                       </Badge>
                                     )}
                                     
-                                    {state === "expanded" && (
+                                    {!isCollapsedSidebar && (
                                       <span className={cn(
                                         "transition-colors duration-200",
                                         isActive ? "font-medium text-primary" : "text-foreground"
@@ -430,7 +481,7 @@ export function MainSidebar({
                                     )}
                                   </div>
                                   
-                                  {hasSubItems && state === "expanded" && (
+                                  {hasSubItems && !isCollapsedSidebar && (
                                     <ChevronDown 
                                       className={cn(
                                         "absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 transition-transform duration-300", 
@@ -463,12 +514,12 @@ export function MainSidebar({
                                   
                                   <div className={cn(
                                     "flex items-center gap-3",
-                                    state === "collapsed" && "justify-center"
+                                    isCollapsedSidebar && "justify-center"
                                   )}>
                                     <Icon className={cn(
                                       "h-5 w-5 transition-transform duration-200",
                                       isActive ? "text-primary" : "text-muted-foreground",
-                                      state === "expanded" ? "mx-3" : "mx-auto"
+                                      !isCollapsedSidebar ? "mx-3" : "mx-auto"
                                     )} />
                                     
                                     {hasNotifications && (
@@ -476,14 +527,14 @@ export function MainSidebar({
                                         variant="destructive" 
                                         className={cn(
                                           "absolute -top-1 -right-1 h-4 min-w-4 px-0.5 flex items-center justify-center text-[10px] animate-pulse",
-                                          state === "expanded" && "right-3"
+                                          !isCollapsedSidebar && "right-3"
                                         )}
                                       >
                                         {item.notificationCount}
                                       </Badge>
                                     )}
                                     
-                                    {state === "expanded" && (
+                                    {!isCollapsedSidebar && (
                                       <span className={cn(
                                         "transition-colors duration-200",
                                         isActive ? "font-medium text-primary" : "text-foreground"
@@ -496,7 +547,7 @@ export function MainSidebar({
                               </SidebarMenuButton>
                             )}
                           </TooltipTrigger>
-                          {state === "collapsed" && (
+                          {isCollapsedSidebar && (
                             <TooltipContent side="right">
                               {item.title}
                               {hasNotifications && (
@@ -509,7 +560,7 @@ export function MainSidebar({
                         </Tooltip>
                       </TooltipProvider>
 
-                      {hasSubItems && state === "expanded" && item.subItems && (
+                      {hasSubItems && !isCollapsedSidebar && item.subItems && (
                         <AnimatePresence>
                           {isOpen && (
                             <SidebarMenuSub>
@@ -566,8 +617,8 @@ export function MainSidebar({
           </AnimatePresence>
         </SidebarContent>
 
-        <SidebarFooter className="mt-auto border-t py-3">
-          {state === "expanded" ? (
+        <SidebarFooter className="mt-auto border-t py-3 bg-background/80 dark:bg-gray-900/90">
+          {!isCollapsedSidebar ? (
             <div className="px-3 space-y-3">
               <div className="flex items-center space-x-3 px-2">
                 <Avatar className="h-10 w-10 border-2 border-primary/20">
@@ -588,7 +639,7 @@ export function MainSidebar({
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="flex-1 bg-background"
+                  className="flex-1 bg-background dark:bg-gray-900"
                   asChild
                 >
                   <Link href="/dashboard/perfil">
@@ -600,7 +651,7 @@ export function MainSidebar({
                 <Button 
                   variant="outline" 
                   size="sm"
-                  className="flex-1 bg-background"
+                  className="flex-1 bg-background dark:bg-gray-900"
                   onClick={handleLogout}
                 >
                   <LogOut className="h-4 w-4 mr-1" />
@@ -657,7 +708,7 @@ export function MainSidebar({
       
       {/* Botão flutuante para reabrir a sidebar quando colapsada */}
       <AnimatePresence>
-        {showFloatingButton && isCollapsed && (
+        {showFloatingButton && isCollapsedSidebar && (
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
