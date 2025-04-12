@@ -1,9 +1,17 @@
 "use client";
 
+import React, { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { Button } from "@/components/ui/button";
-import { LogOut, User, Menu } from "lucide-react";
+import { 
+  LogOut, 
+  User, 
+  Menu, 
+  ChevronLeft, 
+  ChevronRight, 
+  Loader2
+} from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
@@ -17,11 +25,11 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Link from "next/link";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import NotificationsDropdown from "@/components/notifications-dropdown";
 import { ModeToggle } from "@/components/mode-toggle";
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 
 interface ClientLayoutProps {
   children: React.ReactNode;
@@ -30,6 +38,8 @@ interface ClientLayoutProps {
 export function ClientLayout({ children }: ClientLayoutProps) {
   const pathname = usePathname();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isLogoutLoading, setIsLogoutLoading] = useState(false);
+  const [breadcrumbs, setBreadcrumbs] = useState<{label: string; path: string}[]>([]);
 
   // Verificar se estamos em uma página de autenticação ou erro
   const isAuthPage =
@@ -38,6 +48,33 @@ export function ClientLayout({ children }: ClientLayoutProps) {
     pathname === "/forgot-password" ||
     pathname === "/reset-password" ||
     pathname === "/_not-found";
+
+  // Gerar breadcrumbs baseado no pathname
+  useEffect(() => {
+    if (pathname) {
+      const pathSegments = pathname.split('/').filter(segment => segment);
+      
+      // Inicializa com Home/Dashboard
+      const crumbs = [{
+        label: 'Dashboard',
+        path: '/dashboard'
+      }];
+      
+      // Adiciona segmentos intermediários
+      let currentPath = '/dashboard';
+      pathSegments.forEach((segment, index) => {
+        if (index === 0 && segment === 'dashboard') return; // Ignora o primeiro segment se for dashboard
+        
+        currentPath += `/${segment}`;
+        crumbs.push({
+          label: segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, ' '),
+          path: currentPath
+        });
+      });
+
+      setBreadcrumbs(crumbs);
+    }
+  }, [pathname]);
 
   // Para páginas de autenticação, renderizar diretamente o conteúdo
   if (isAuthPage) {
@@ -50,7 +87,16 @@ export function ClientLayout({ children }: ClientLayoutProps) {
     const { user, isLoading, logout } = useAuth();
 
     // Durante o carregamento inicial ou se não houver usuário, renderizar apenas o conteúdo
-    if (isLoading || !user) {
+    if (isLoading) {
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="mt-2 text-sm text-muted-foreground">Carregando...</p>
+        </div>
+      );
+    }
+    
+    if (!user) {
       return <div className="min-h-screen flex flex-col">{children}</div>;
     }
 
@@ -62,27 +108,39 @@ export function ClientLayout({ children }: ClientLayoutProps) {
       "user";
 
     const handleLogout = async () => {
-      await logout();
+      try {
+        setIsLogoutLoading(true);
+        await logout();
+      } catch (error) {
+        console.error("Erro ao realizar logout:", error);
+      } finally {
+        setIsLogoutLoading(false);
+      }
+    };
+
+    const toggleSidebar = () => {
+      setIsSidebarCollapsed(prev => !prev);
     };
 
     // Layout completo para usuários autenticados
     return (
       <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
         {/* Sidebar para desktop */}
-        <div className="hidden md:block">
+        <div className="hidden md:block transition-all duration-300">
           <SidebarProvider defaultOpen={!isSidebarCollapsed}>
             <DashboardSidebar
               userRole={userRole}
               isCollapsed={isSidebarCollapsed}
+              onToggleCollapse={toggleSidebar}
             />
           </SidebarProvider>
         </div>
 
         {/* Conteúdo principal */}
-        <SidebarInset>
+        <SidebarInset className="transition-all duration-300">
           {/* Header */}
           <header className="sticky top-0 z-50 flex h-16 items-center justify-between border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 md:px-6">
-            <div className="flex items-center">
+            <div className="flex items-center gap-2">
               <Sheet>
                 <SheetTrigger asChild>
                   <Button variant="ghost" size="icon" className="md:hidden">
@@ -99,7 +157,21 @@ export function ClientLayout({ children }: ClientLayoutProps) {
                 </SheetContent>
               </Sheet>
               
-              <div className="hidden md:block ml-4">
+              <div className="hidden md:block">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={toggleSidebar}
+                  className="transition-colors"
+                >
+                  {isSidebarCollapsed ? 
+                    <ChevronRight className="h-5 w-5" /> : 
+                    <ChevronLeft className="h-5 w-5" />
+                  }
+                </Button>
+              </div>
+              
+              <div className="hidden md:block ml-2">
                 <Link href="/dashboard" className="flex items-center">
                   <span className="font-bold text-xl">CFO</span>
                 </Link>
@@ -127,20 +199,72 @@ export function ClientLayout({ children }: ClientLayoutProps) {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>Minha conta</DropdownMenuLabel>
-                  <DropdownMenuItem>
-                    <User className="mr-2 h-4 w-4" />
-                    <Link href="/dashboard/perfil">Perfil</Link>
+                  <DropdownMenuLabel>
+                    <div className="flex flex-col">
+                      <span>{user.name}</span>
+                      <span className="text-xs text-muted-foreground mt-1">
+                        {userRole.charAt(0).toUpperCase() + userRole.slice(1)}
+                      </span>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard/perfil" className="flex items-center cursor-pointer">
+                      <User className="mr-2 h-4 w-4" />
+                      <span>Perfil</span>
+                    </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout}>
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Sair</span>
+                  <DropdownMenuItem 
+                    onClick={handleLogout} 
+                    disabled={isLogoutLoading}
+                    className="cursor-pointer"
+                  >
+                    {isLogoutLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        <span>Saindo...</span>
+                      </>
+                    ) : (
+                      <>
+                        <LogOut className="mr-2 h-4 w-4" />
+                        <span>Sair</span>
+                      </>
+                    )}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
           </header>
+
+          {/* Breadcrumbs */}
+          {breadcrumbs.length > 1 && (
+            <div className="container px-4 md:px-6 py-3 border-b">
+              <Breadcrumb>
+                <BreadcrumbList>
+                  {breadcrumbs.map((crumb, index) => {
+                    const isLast = index === breadcrumbs.length - 1;
+                    return (
+                      <React.Fragment key={crumb.path}>
+                        {isLast ? (
+                          <BreadcrumbItem>
+                            <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
+                          </BreadcrumbItem>
+                        ) : (
+                          <BreadcrumbItem>
+                            <BreadcrumbLink href={crumb.path}>
+                              {crumb.label}
+                            </BreadcrumbLink>
+                          </BreadcrumbItem>
+                        )}
+                        {!isLast && <BreadcrumbSeparator />}
+                      </React.Fragment>
+                    );
+                  })}
+                </BreadcrumbList>
+              </Breadcrumb>
+            </div>
+          )}
 
           {/* Conteúdo */}
           <main className="flex-1">
@@ -153,6 +277,11 @@ export function ClientLayout({ children }: ClientLayoutProps) {
     );
   } catch (error) {
     // Fallback caso ocorra um erro ao usar o useAuth
-    return <div className="min-h-screen flex flex-col">{children}</div>;
+    console.error("Erro ao renderizar layout:", error);
+    return (
+      <div className="min-h-screen flex flex-col">
+        {children}
+      </div>
+    );
   }
 }
