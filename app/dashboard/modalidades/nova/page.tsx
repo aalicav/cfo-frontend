@@ -181,7 +181,10 @@ export default function NovaModalidadePage() {
 
               <div className="space-y-2">
                 <Label htmlFor="type">Tipo</Label>
-                <Select value={formData.type || ""} onValueChange={(value) => handleSelectChange("type", value)}>
+                <Select 
+                  value={formData.type || undefined} 
+                  onValueChange={(value) => handleSelectChange("type", value)}
+                >
                   <SelectTrigger id="type">
                     <SelectValue placeholder="Selecione o tipo" />
                   </SelectTrigger>
@@ -195,7 +198,10 @@ export default function NovaModalidadePage() {
 
               <div className="space-y-2">
                 <Label htmlFor="level">Nível</Label>
-                <Select value={formData.level || ""} onValueChange={(value) => handleSelectChange("level", value)}>
+                <Select 
+                  value={formData.level || undefined} 
+                  onValueChange={(value) => handleSelectChange("level", value)}
+                >
                   <SelectTrigger id="level">
                     <SelectValue placeholder="Selecione o nível" />
                   </SelectTrigger>
