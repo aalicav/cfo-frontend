@@ -20,21 +20,8 @@ import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { projetosService, ProjetoPayload } from "@/services/projetos.service"
 import { Skeleton } from "@/components/ui/skeleton"
-import { modalidadesService } from "@/services/modalidades.service"
-import { espacosService } from "@/services/espacos.service"
-
-interface Modalidade {
-  id: number | string
-  name: string
-}
-
-interface Espaco {
-  id: number | string
-  name: string
-  type: string
-  capacity?: number
-  image_url?: string
-}
+import { modalidadesService, Modalidade } from "@/services/modalidades.service"
+import { espacosService, Espaco } from "@/services/espacos.service"
 
 export default function NovoProjetoPage() {
   const router = useRouter()
@@ -85,11 +72,7 @@ export default function NovoProjetoPage() {
       setLoadingModalidades(true)
       try {
         const response = await modalidadesService.listar()
-        if (Array.isArray(response)) {
-          setModalidades(response)
-        } else if (response && 'data' in response) {
-          setModalidades(response.data)
-        }
+        setModalidades(Array.isArray(response) ? response : [])
       } catch (error) {
         console.error("Erro ao carregar modalidades:", error)
         toast({
@@ -111,11 +94,7 @@ export default function NovoProjetoPage() {
       setLoadingEspacos(true)
       try {
         const response = await espacosService.listar()
-        if (Array.isArray(response)) {
-          setEspacos(response)
-        } else if (response && 'data' in response) {
-          setEspacos(response.data)
-        }
+        setEspacos(Array.isArray(response) ? response : [])
       } catch (error) {
         console.error("Erro ao carregar espaços:", error)
         toast({

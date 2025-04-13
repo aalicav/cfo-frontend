@@ -3,11 +3,17 @@ import { avaliacoesService } from './avaliacoes.service'
 import { atletasService } from './atletas.service'
 import { timesService } from './times.service'
 import { notificacoesService } from './notificacoes.service'
+import { modalidadesService } from './modalidades.service'
+import { espacosService } from './espacos.service'
+import { projetosService } from './projetos.service'
 
 export {
   authService,
   avaliacoesService,
   atletasService,
   timesService,
-  notificacoesService
+  notificacoesService,
+  modalidadesService,
+  espacosService,
+  projetosService
 } 
