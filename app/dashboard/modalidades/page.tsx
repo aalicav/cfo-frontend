@@ -83,7 +83,7 @@ export default function ModalidadesPage() {
         page,
         per_page: perPage,
         search: debouncedSearchTerm || undefined,
-        category: categoria || undefined,
+        category: categoria && categoria !== 'all' ? categoria : undefined,
         sort_by: 'name',
         sort_dir: 'asc'
       }
@@ -165,14 +165,14 @@ export default function ModalidadesPage() {
 
     if (page) setCurrentPage(parseInt(page))
     if (search) setSearchTerm(search)
-    if (category) setCategoria(category)
+    if (category) setCategoria(category || 'all')
     if (status) setStatusFilter(status)
   }, [searchParams])
 
   // Limpar pesquisa e resetar para primeira página
   const handleClearSearch = () => {
     setSearchTerm("")
-    setCategoria("")
+    setCategoria("all")
     setCurrentPage(1)
   }
 
@@ -181,7 +181,7 @@ export default function ModalidadesPage() {
     setCurrentPage(page)
   }
 
-  const temFiltrosAtivos = debouncedSearchTerm || categoria || statusFilter
+  const temFiltrosAtivos = debouncedSearchTerm || (categoria && categoria !== 'all') || statusFilter
 
   if (loading && modalidades.length === 0) {
     return <CarregandoModalidades />
@@ -225,7 +225,7 @@ export default function ModalidadesPage() {
               <SelectValue placeholder="Filtrar por categoria" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Todas as categorias</SelectItem>
+              <SelectItem value="all">Todas as categorias</SelectItem>
               {categorias.map((cat) => (
                 <SelectItem key={cat} value={cat}>{cat}</SelectItem>
               ))}
