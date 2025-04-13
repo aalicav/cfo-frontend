@@ -120,7 +120,7 @@ export const projetosService = {
   // Criar um novo projeto
   criar: async (dados: ProjetoPayload) => {
     try {
-      const response = await http.post<ApiResponse<Projeto>>('/projects', dados)
+      const response = await http.post<ApiResponse<Omit<Projeto, 'created_at' | 'updated_at' | 'completed_goals_count' | 'total_goals_count' | 'progress_percentage' | 'status_display' | 'goals' | 'spaces' | 'id'>>>('/projects', dados)
       return {
         dados: response.data?.data,
         mensagem: response.data?.message

@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -14,12 +14,27 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ArrowLeft, Plus, X, Calendar } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { modalidadesMock } from "@/lib/modalidades-mock"
-import { espacosMock } from "@/lib/espacos-mock"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
+import { projetosService, ProjetoPayload } from "@/services/projetos.service"
+import { Skeleton } from "@/components/ui/skeleton"
+import { modalidadesService } from "@/services/modalidades.service"
+import { espacosService } from "@/services/espacos.service"
+
+interface Modalidade {
+  id: number | string
+  name: string
+}
+
+interface Espaco {
+  id: number | string
+  name: string
+  type: string
+  capacity?: number
+  image_url?: string
+}
 
 export default function NovoProjetoPage() {
   const router = useRouter()
@@ -29,23 +44,103 @@ export default function NovoProjetoPage() {
   const [dataInicio, setDataInicio] = useState<Date>()
   const [dataFim, setDataFim] = useState<Date>()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [loadingModalidades, setLoadingModalidades] = useState(true)
+  const [loadingEspacos, setLoadingEspacos] = useState(true)
+  const [modalidades, setModalidades] = useState<Modalidade[]>([])
+  const [espacos, setEspacos] = useState<Espaco[]>([])
+  const [tipos, setTipos] = useState<string[]>([])
 
-  const [formData, setFormData] = useState({
-    nome: "",
-    modalidade: "",
-    tipo: "",
-    status: "planejado",
-    responsavel: "",
-    descricao: "",
-    publicoAlvo: "",
-    quantidadePrevista: "",
-    espacos: [] as string[],
-    metas: [{ descricao: "", data: "", indicadores: [""] }],
+  const [formData, setFormData] = useState<Omit<ProjetoPayload, 'start_date' | 'end_date'>>({
+    name: "",
+    modality: "",
+    type: "",
+    status: "planned",
+    responsible: "",
+    description: "",
+    target_audience: "",
+    expected_participants: undefined,
+    spaces: [],
+    goals: [{ description: "", target_date: "", indicators: [""] }],
   })
+
+  // Carregar tipos de projeto
+  useEffect(() => {
+    const carregarTipos = async () => {
+      try {
+        const response = await projetosService.getTipos()
+        if (Array.isArray(response)) {
+          setTipos(response)
+        }
+      } catch (error) {
+        console.error("Erro ao carregar tipos de projeto:", error)
+      }
+    }
+    
+    carregarTipos()
+  }, [])
+
+  // Carregar modalidades
+  useEffect(() => {
+    const carregarModalidades = async () => {
+      setLoadingModalidades(true)
+      try {
+        const response = await modalidadesService.listar()
+        if (Array.isArray(response)) {
+          setModalidades(response)
+        } else if (response && 'data' in response) {
+          setModalidades(response.data)
+        }
+      } catch (error) {
+        console.error("Erro ao carregar modalidades:", error)
+        toast({
+          title: "Erro",
+          description: "Não foi possível carregar as modalidades.",
+          variant: "destructive",
+        })
+      } finally {
+        setLoadingModalidades(false)
+      }
+    }
+    
+    carregarModalidades()
+  }, [toast])
+
+  // Carregar espaços
+  useEffect(() => {
+    const carregarEspacos = async () => {
+      setLoadingEspacos(true)
+      try {
+        const response = await espacosService.listar()
+        if (Array.isArray(response)) {
+          setEspacos(response)
+        } else if (response && 'data' in response) {
+          setEspacos(response.data)
+        }
+      } catch (error) {
+        console.error("Erro ao carregar espaços:", error)
+        toast({
+          title: "Erro",
+          description: "Não foi possível carregar os espaços.",
+          variant: "destructive",
+        })
+      } finally {
+        setLoadingEspacos(false)
+      }
+    }
+    
+    carregarEspacos()
+  }, [toast])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
+    
+    // Converter para número quando necessário
+    if (name === 'expected_participants') {
+      const numValue = value === '' ? undefined : Number(value)
+      setFormData((prev) => ({ ...prev, [name]: numValue }))
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }))
+    }
   }
 
   const handleSelectChange = (name: string, value: string) => {
@@ -54,65 +149,65 @@ export default function NovoProjetoPage() {
 
   const handleEspacoToggle = (espacoId: string) => {
     setFormData((prev) => {
-      const espacos = [...prev.espacos]
+      const espacos = [...(prev.spaces || [])]
       if (espacos.includes(espacoId)) {
-        return { ...prev, espacos: espacos.filter((id) => id !== espacoId) }
+        return { ...prev, spaces: espacos.filter((id) => id !== espacoId) }
       } else {
-        return { ...prev, espacos: [...espacos, espacoId] }
+        return { ...prev, spaces: [...espacos, espacoId] }
       }
     })
   }
 
   const handleMetaChange = (index: number, field: string, value: string) => {
-    const newMetas = [...formData.metas]
+    const newMetas = [...formData.goals!]
     newMetas[index] = { ...newMetas[index], [field]: value }
-    setFormData((prev) => ({ ...prev, metas: newMetas }))
+    setFormData((prev) => ({ ...prev, goals: newMetas }))
   }
 
   const handleIndicadorChange = (metaIndex: number, indicadorIndex: number, value: string) => {
-    const newMetas = [...formData.metas]
-    const newIndicadores = [...newMetas[metaIndex].indicadores]
+    const newMetas = [...formData.goals!]
+    const newIndicadores = [...(newMetas[metaIndex].indicators || [""])]
     newIndicadores[indicadorIndex] = value
-    newMetas[metaIndex].indicadores = newIndicadores
-    setFormData((prev) => ({ ...prev, metas: newMetas }))
+    newMetas[metaIndex].indicators = newIndicadores
+    setFormData((prev) => ({ ...prev, goals: newMetas }))
   }
 
   const addMeta = () => {
     setFormData((prev) => ({
       ...prev,
-      metas: [...prev.metas, { descricao: "", data: "", indicadores: [""] }],
+      goals: [...(prev.goals || []), { description: "", target_date: "", indicators: [""] }],
     }))
   }
 
   const removeMeta = (index: number) => {
-    const newMetas = [...formData.metas]
+    const newMetas = [...formData.goals!]
     newMetas.splice(index, 1)
     setFormData((prev) => ({
       ...prev,
-      metas: newMetas.length ? newMetas : [{ descricao: "", data: "", indicadores: [""] }],
+      goals: newMetas.length ? newMetas : [{ description: "", target_date: "", indicators: [""] }],
     }))
   }
 
   const addIndicador = (metaIndex: number) => {
-    const newMetas = [...formData.metas]
-    newMetas[metaIndex].indicadores.push("")
-    setFormData((prev) => ({ ...prev, metas: newMetas }))
+    const newMetas = [...formData.goals!]
+    newMetas[metaIndex].indicators = [...(newMetas[metaIndex].indicators || []), ""]
+    setFormData((prev) => ({ ...prev, goals: newMetas }))
   }
 
   const removeIndicador = (metaIndex: number, indicadorIndex: number) => {
-    const newMetas = [...formData.metas]
-    const newIndicadores = [...newMetas[metaIndex].indicadores]
+    const newMetas = [...formData.goals!]
+    const newIndicadores = [...(newMetas[metaIndex].indicators || [""])]
     newIndicadores.splice(indicadorIndex, 1)
-    newMetas[metaIndex].indicadores = newIndicadores.length ? newIndicadores : [""]
-    setFormData((prev) => ({ ...prev, metas: newMetas }))
+    newMetas[metaIndex].indicators = newIndicadores.length ? newIndicadores : [""]
+    setFormData((prev) => ({ ...prev, goals: newMetas }))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
 
     // Validação básica
-    if (!formData.nome || !formData.modalidade || !formData.responsavel || !dataInicio || !dataFim) {
+    if (!formData.name || !formData.modality || !formData.responsible || !dataInicio || !dataFim) {
       toast({
         title: "Erro de validação",
         description: "Por favor, preencha todos os campos obrigatórios.",
@@ -122,14 +217,43 @@ export default function NovoProjetoPage() {
       return
     }
 
-    // Simulando envio para API
-    setTimeout(() => {
+    try {
+      // Formatar datas para ISO string
+      const projetoData: ProjetoPayload = {
+        ...formData,
+        start_date: dataInicio.toISOString().split('T')[0],
+        end_date: dataFim.toISOString().split('T')[0],
+      }
+
+      // Formatar datas das metas
+      if (projetoData.goals) {
+        projetoData.goals = projetoData.goals.map(meta => ({
+          ...meta,
+          target_date: meta.target_date 
+            ? new Date(meta.target_date).toISOString().split('T')[0] 
+            : undefined
+        }))
+      }
+
+      // Enviar para API
+      const result = await projetosService.criar(projetoData)
+
       toast({
         title: "Projeto criado com sucesso",
-        description: "O novo projeto foi adicionado ao sistema.",
+        description: result.mensagem || "O novo projeto foi adicionado ao sistema.",
       })
+
       router.push("/dashboard/projetos")
-    }, 1500)
+    } catch (error: any) {
+      console.error("Erro ao criar projeto:", error)
+      toast({
+        title: "Erro ao criar projeto",
+        description: error.response?.data?.message || "Ocorreu um erro ao salvar o projeto.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const nextTab = () => {
@@ -170,11 +294,11 @@ export default function NovoProjetoPage() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="nome">Nome do Projeto *</Label>
+                    <Label htmlFor="name">Nome do Projeto *</Label>
                     <Input
-                      id="nome"
-                      name="nome"
-                      value={formData.nome}
+                      id="name"
+                      name="name"
+                      value={formData.name}
                       onChange={handleChange}
                       placeholder="Ex: Natação para Jovens"
                       required
@@ -182,50 +306,64 @@ export default function NovoProjetoPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="modalidade">Modalidade *</Label>
-                    <Select
-                      value={formData.modalidade}
-                      onValueChange={(value) => handleSelectChange("modalidade", value)}
-                    >
-                      <SelectTrigger id="modalidade">
-                        <SelectValue placeholder="Selecione a modalidade" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {modalidadesMock.map((modalidade) => (
-                          <SelectItem key={modalidade.id} value={modalidade.nome}>
-                            {modalidade.nome}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Label htmlFor="modality">Modalidade *</Label>
+                    {loadingModalidades ? (
+                      <Skeleton className="h-10 w-full" />
+                    ) : (
+                      <Select
+                        value={formData.modality}
+                        onValueChange={(value) => handleSelectChange("modality", value)}
+                      >
+                        <SelectTrigger id="modality">
+                          <SelectValue placeholder="Selecione a modalidade" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {modalidades.map((modalidade) => (
+                            <SelectItem key={modalidade.id} value={modalidade.name}>
+                              {modalidade.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="tipo">Tipo de Projeto</Label>
-                    <Select value={formData.tipo} onValueChange={(value) => handleSelectChange("tipo", value)}>
-                      <SelectTrigger id="tipo">
+                    <Label htmlFor="type">Tipo de Projeto</Label>
+                    <Select value={formData.type} onValueChange={(value) => handleSelectChange("type", value)}>
+                      <SelectTrigger id="type">
                         <SelectValue placeholder="Selecione o tipo" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Esportivo">Esportivo</SelectItem>
-                        <SelectItem value="Social">Social</SelectItem>
-                        <SelectItem value="Educacional">Educacional</SelectItem>
-                        <SelectItem value="Cultural">Cultural</SelectItem>
-                        <SelectItem value="Misto">Misto</SelectItem>
+                        {tipos.length > 0 ? (
+                          tipos.map((tipo) => (
+                            <SelectItem key={tipo} value={tipo}>
+                              {tipo}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <>
+                            <SelectItem value="Sports">Esportivo</SelectItem>
+                            <SelectItem value="Social">Social</SelectItem>
+                            <SelectItem value="Educational">Educacional</SelectItem>
+                            <SelectItem value="Cultural">Cultural</SelectItem>
+                            <SelectItem value="Mixed">Misto</SelectItem>
+                          </>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="status">Status *</Label>
-                    <Select value={formData.status} onValueChange={(value) => handleSelectChange("status", value)}>
+                    <Select value={formData.status} onValueChange={(value) => handleSelectChange("status", value as 'planned' | 'in_progress' | 'completed')}>
                       <SelectTrigger id="status">
                         <SelectValue placeholder="Selecione o status" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="planejado">Planejado</SelectItem>
-                        <SelectItem value="em_andamento">Em andamento</SelectItem>
-                        <SelectItem value="encerrado">Encerrado</SelectItem>
+                        <SelectItem value="planned">Planejado</SelectItem>
+                        <SelectItem value="in_progress">Em andamento</SelectItem>
+                        <SelectItem value="completed">Encerrado</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -267,11 +405,11 @@ export default function NovoProjetoPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="responsavel">Responsável *</Label>
+                    <Label htmlFor="responsible">Responsável *</Label>
                     <Input
-                      id="responsavel"
-                      name="responsavel"
-                      value={formData.responsavel}
+                      id="responsible"
+                      name="responsible"
+                      value={formData.responsible}
                       onChange={handleChange}
                       placeholder="Ex: Carlos Mendes"
                       required
@@ -279,34 +417,35 @@ export default function NovoProjetoPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="publicoAlvo">Público-Alvo</Label>
+                    <Label htmlFor="target_audience">Público-Alvo</Label>
                     <Input
-                      id="publicoAlvo"
-                      name="publicoAlvo"
-                      value={formData.publicoAlvo}
+                      id="target_audience"
+                      name="target_audience"
+                      value={formData.target_audience}
                       onChange={handleChange}
                       placeholder="Ex: Crianças e adolescentes de 10 a 17 anos"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="quantidadePrevista">Quantidade Prevista</Label>
+                    <Label htmlFor="expected_participants">Quantidade Prevista</Label>
                     <Input
-                      id="quantidadePrevista"
-                      name="quantidadePrevista"
-                      value={formData.quantidadePrevista}
+                      id="expected_participants"
+                      name="expected_participants"
+                      type="number"
+                      value={formData.expected_participants || ''}
                       onChange={handleChange}
-                      placeholder="Ex: 50 participantes"
+                      placeholder="Ex: 50"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="descricao">Descrição do Projeto</Label>
+                  <Label htmlFor="description">Descrição do Projeto</Label>
                   <Textarea
-                    id="descricao"
-                    name="descricao"
-                    value={formData.descricao}
+                    id="description"
+                    name="description"
+                    value={formData.description}
                     onChange={handleChange}
                     placeholder="Descreva o projeto, seus objetivos e características..."
                     className="min-h-[120px]"
@@ -329,32 +468,42 @@ export default function NovoProjetoPage() {
                 <CardDescription>Selecione os espaços que serão utilizados no projeto</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {espacosMock.map((espaco) => (
-                    <div
-                      key={espaco.id}
-                      className={`border rounded-md p-4 cursor-pointer transition-colors ${
-                        formData.espacos.includes(espaco.id) ? "border-green-500 bg-green-50" : "hover:border-gray-400"
-                      }`}
-                      onClick={() => handleEspacoToggle(espaco.id)}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="h-12 w-12 rounded-md bg-gray-100 flex-shrink-0 overflow-hidden">
-                          <img
-                            src={espaco.imagens[0] || "/placeholder.svg"}
-                            alt={espaco.nome}
-                            className="h-full w-full object-cover"
-                          />
-                        </div>
-                        <div>
-                          <h3 className="font-medium">{espaco.nome}</h3>
-                          <p className="text-sm text-muted-foreground">{espaco.tipo}</p>
-                          <p className="text-xs text-muted-foreground mt-1">Capacidade: {espaco.capacidade} pessoas</p>
+                {loadingEspacos ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {Array.from({ length: 6 }).map((_, index) => (
+                      <Skeleton key={index} className="h-32 w-full" />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {espacos.map((espaco) => (
+                      <div
+                        key={espaco.id}
+                        className={`border rounded-md p-4 cursor-pointer transition-colors ${
+                          formData.spaces?.includes(espaco.id) ? "border-green-500 bg-green-50" : "hover:border-gray-400"
+                        }`}
+                        onClick={() => handleEspacoToggle(espaco.id.toString())}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="h-12 w-12 rounded-md bg-gray-100 flex-shrink-0 overflow-hidden">
+                            <img
+                              src={espaco.image_url || "/placeholder.svg"}
+                              alt={espaco.name}
+                              className="h-full w-full object-cover"
+                            />
+                          </div>
+                          <div>
+                            <h3 className="font-medium">{espaco.name}</h3>
+                            <p className="text-sm text-muted-foreground">{espaco.type}</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Capacidade: {espaco.capacity || '?'} pessoas
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
 
                 <div className="flex justify-between mt-6">
                   <Button type="button" variant="outline" onClick={prevTab}>
@@ -375,7 +524,7 @@ export default function NovoProjetoPage() {
                 <CardDescription>Defina as metas e indicadores de acompanhamento do projeto</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {formData.metas.map((meta, metaIndex) => (
+                {formData.goals?.map((meta, metaIndex) => (
                   <div key={metaIndex} className="border rounded-md p-4 space-y-4">
                     <div className="flex justify-between items-start">
                       <h3 className="font-medium">Meta {metaIndex + 1}</h3>
@@ -384,7 +533,7 @@ export default function NovoProjetoPage() {
                         variant="ghost"
                         size="icon"
                         onClick={() => removeMeta(metaIndex)}
-                        disabled={formData.metas.length === 1}
+                        disabled={formData.goals?.length === 1}
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -392,29 +541,29 @@ export default function NovoProjetoPage() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor={`meta-${metaIndex}-descricao`}>Descrição da Meta</Label>
+                        <Label htmlFor={`meta-${metaIndex}-description`}>Descrição da Meta</Label>
                         <Input
-                          id={`meta-${metaIndex}-descricao`}
-                          value={meta.descricao}
-                          onChange={(e) => handleMetaChange(metaIndex, "descricao", e.target.value)}
+                          id={`meta-${metaIndex}-description`}
+                          value={meta.description}
+                          onChange={(e) => handleMetaChange(metaIndex, "description", e.target.value)}
                           placeholder="Ex: Inscrever 50 participantes"
                         />
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor={`meta-${metaIndex}-data`}>Data Prevista</Label>
+                        <Label htmlFor={`meta-${metaIndex}-target_date`}>Data Prevista</Label>
                         <Input
-                          id={`meta-${metaIndex}-data`}
-                          value={meta.data}
-                          onChange={(e) => handleMetaChange(metaIndex, "data", e.target.value)}
-                          placeholder="Ex: 30/06/2025"
+                          id={`meta-${metaIndex}-target_date`}
+                          type="date"
+                          value={meta.target_date || ''}
+                          onChange={(e) => handleMetaChange(metaIndex, "target_date", e.target.value)}
                         />
                       </div>
                     </div>
 
                     <div className="space-y-2">
                       <Label>Indicadores</Label>
-                      {meta.indicadores.map((indicador, indicadorIndex) => (
+                      {meta.indicators?.map((indicador, indicadorIndex) => (
                         <div key={indicadorIndex} className="flex gap-2 items-center">
                           <Input
                             value={indicador}
@@ -426,7 +575,7 @@ export default function NovoProjetoPage() {
                             variant="ghost"
                             size="icon"
                             onClick={() => removeIndicador(metaIndex, indicadorIndex)}
-                            disabled={meta.indicadores.length === 1}
+                            disabled={(meta.indicators?.length || 0) <= 1}
                           >
                             <X className="h-4 w-4" />
                           </Button>
