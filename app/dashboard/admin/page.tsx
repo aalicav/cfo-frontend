@@ -44,9 +44,9 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Painel Administrativo</h1>
-          <p className="text-muted-foreground">Bem-vindo ao painel de administração do Centro de Formação Olímpica.</p>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Painel Administrativo</h1>
+        <p className="text-muted-foreground">Bem-vindo ao painel de administração do Centro de Formação Olímpica.</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm">
@@ -238,8 +238,8 @@ export default function AdminDashboard() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle>Gerenciamento de Usuários</CardTitle>
-                  <CardDescription>Gerencie todos os usuários do sistema e suas permissões</CardDescription>
+              <CardTitle>Gerenciamento de Usuários</CardTitle>
+              <CardDescription>Gerencie todos os usuários do sistema e suas permissões</CardDescription>
                 </div>
                 <Button>
                   <Plus className="mr-2 h-4 w-4" />
@@ -317,8 +317,8 @@ export default function AdminDashboard() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle>Gerenciamento de Projetos</CardTitle>
-                  <CardDescription>Visualize e gerencie todos os projetos e modalidades</CardDescription>
+              <CardTitle>Gerenciamento de Projetos</CardTitle>
+              <CardDescription>Visualize e gerencie todos os projetos e modalidades</CardDescription>
                 </div>
                 <Button>
                   <Plus className="mr-2 h-4 w-4" />
@@ -396,8 +396,8 @@ export default function AdminDashboard() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle>Gerenciamento de Espaços</CardTitle>
-                  <CardDescription>Administre os espaços e instalações do centro</CardDescription>
+              <CardTitle>Gerenciamento de Espaços</CardTitle>
+              <CardDescription>Administre os espaços e instalações do centro</CardDescription>
                 </div>
                 <Button>
                   <Plus className="mr-2 h-4 w-4" />
@@ -475,8 +475,8 @@ export default function AdminDashboard() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle>Auditoria do Sistema</CardTitle>
-                  <CardDescription>Visualize logs e registros de atividades</CardDescription>
+              <CardTitle>Auditoria do Sistema</CardTitle>
+              <CardDescription>Visualize logs e registros de atividades</CardDescription>
                 </div>
                 <Button variant="outline">
                   <Download className="mr-2 h-4 w-4" />

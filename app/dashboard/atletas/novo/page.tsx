@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -13,16 +13,15 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ArrowLeft, Plus, X, Upload, Calendar } from "lucide-react"
+import { ArrowLeft, Upload, Calendar } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { modalidadesMock } from "@/lib/modalidades-mock"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { atletasService } from "@/services/api"
-import { Atleta } from "@/types"
 import { CriarAtletaPayload } from "@/services/atletas.service"
+import { modalidadesService, Modalidade } from "@/services/modalidades.service"
 
 export default function NovoAtletaPage() {
   const router = useRouter()
@@ -31,6 +30,8 @@ export default function NovoAtletaPage() {
   const [activeTab, setActiveTab] = useState("dados-pessoais")
   const [dataNascimento, setDataNascimento] = useState<Date>()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [modalidades, setModalidades] = useState<Modalidade[]>([])
+  const [carregandoModalidades, setCarregandoModalidades] = useState(true)
 
   const [formData, setFormData] = useState<CriarAtletaPayload>({
     status: "active",
@@ -44,6 +45,31 @@ export default function NovoAtletaPage() {
     phone: "",
     address: "",
   })
+
+  // Carregar modalidades ao iniciar o componente
+  useEffect(() => {
+    const carregarModalidades = async () => {
+      try {
+        setCarregandoModalidades(true)
+        const response = await modalidadesService.listar()
+        
+        if (Array.isArray(response)) {
+          setModalidades(response)
+        }
+      } catch (error) {
+        console.error("Erro ao carregar modalidades:", error)
+        toast({
+          title: "Erro ao carregar modalidades",
+          description: "Não foi possível carregar a lista de modalidades. Tente novamente mais tarde.",
+          variant: "destructive",
+        })
+      } finally {
+        setCarregandoModalidades(false)
+      }
+    }
+    
+    carregarModalidades()
+  }, [toast])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -66,13 +92,13 @@ export default function NovoAtletaPage() {
     setFormData((prev) => ({ ...prev, [name]: checked }))
   }
 
-  const handleModalidadeToggle = (modalidade: string) => {
+  const handleModalidadeToggle = (modalidadeName: string) => {
     setFormData((prev) => {
       const modalities = [...(prev.modalities || [])]
-      if (modalities.includes(modalidade)) {
-        return { ...prev, modalities: modalities.filter((m) => m !== modalidade) }
+      if (modalities.includes(modalidadeName)) {
+        return { ...prev, modalities: modalities.filter((m) => m !== modalidadeName) }
       } else {
-        return { ...prev, modalities: [...modalities, modalidade] }
+        return { ...prev, modalities: [...modalities, modalidadeName] }
       }
     })
   }
@@ -147,6 +173,16 @@ export default function NovoAtletaPage() {
     else if (activeTab === "modalidades") setActiveTab("contatos")
     else if (activeTab === "contatos") setActiveTab("dados-pessoais")
   }
+
+  // Agrupar modalidades por categoria para exibição
+  const modalidadesPorCategoria = modalidades.reduce((acc, modalidade) => {
+    const categoria = modalidade.category || 'Sem categoria';
+    if (!acc[categoria]) {
+      acc[categoria] = [];
+    }
+    acc[categoria].push(modalidade);
+    return acc;
+  }, {} as Record<string, Modalidade[]>);
 
   return (
     <div className="space-y-6">
@@ -508,31 +544,50 @@ export default function NovoAtletaPage() {
                 <CardDescription>Selecione as modalidades que o atleta pratica</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {modalidadesMock.map((modalidade) => (
-                    <div
-                      key={modalidade.id}
-                      className={`border rounded-md p-4 cursor-pointer transition-colors ${
-                        formData.modalities?.includes(modalidade.nome)
-                          ? "border-green-500 bg-green-50"
-                          : "hover:border-gray-400"
-                      }`}
-                      onClick={() => handleModalidadeToggle(modalidade.nome)}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          checked={Boolean(formData.modalities?.includes(modalidade.nome))}
-                          onCheckedChange={() => handleModalidadeToggle(modalidade.nome)}
-                          id={`modalidade-${modalidade.id}`}
-                        />
-                        <div>
-                          <h3 className="font-medium">{modalidade.nome}</h3>
-                          <p className="text-sm text-muted-foreground">{modalidade.categoria}</p>
+                {carregandoModalidades ? (
+                  <div className="flex justify-center py-8">
+                    <p>Carregando modalidades...</p>
+                  </div>
+                ) : modalidades.length === 0 ? (
+                  <div className="flex justify-center py-8">
+                    <p>Nenhuma modalidade encontrada</p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {Object.entries(modalidadesPorCategoria).map(([categoria, modalidadesCategoria]) => (
+                      <div key={categoria} className="space-y-3">
+                        <h3 className="font-semibold text-lg">{categoria}</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {modalidadesCategoria.map((modalidade) => (
+                            <div
+                              key={modalidade.id}
+                              className={`border rounded-md p-4 cursor-pointer transition-colors ${
+                                formData.modalities?.includes(modalidade.name)
+                                  ? "border-green-500 bg-green-50"
+                                  : "hover:border-gray-400"
+                              }`}
+                              onClick={() => handleModalidadeToggle(modalidade.name)}
+                            >
+                              <div className="flex items-center gap-2">
+                                <Checkbox
+                                  checked={Boolean(formData.modalities?.includes(modalidade.name))}
+                                  onCheckedChange={() => handleModalidadeToggle(modalidade.name)}
+                                  id={`modalidade-${modalidade.id}`}
+                                />
+                                <div>
+                                  <h3 className="font-medium">{modalidade.name}</h3>
+                                  {modalidade.description && (
+                                    <p className="text-sm text-muted-foreground">{modalidade.description}</p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
 
                 <div className="flex justify-between mt-6">
                   <Button type="button" variant="outline" onClick={prevTab}>

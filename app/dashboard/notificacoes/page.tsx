@@ -160,26 +160,26 @@ export default function NotificacoesPage() {
         </div>
         <div className="flex gap-2">
           {naoLidas.length > 0 && (
-            <Button 
-              variant="outline" 
+          <Button
+            variant="outline"
               onClick={handleMarcarTodasComoLidas}
               className="flex items-center gap-2"
             >
               <Check className="h-4 w-4" />
               Marcar todas como lidas
-            </Button>
+          </Button>
           )}
           
           {todasNotificacoes.length > 0 && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button 
+          <Button
                   variant="destructive" 
                   className="flex items-center gap-2"
                 >
                   <Trash2 className="h-4 w-4" />
                   Limpar tudo
-                </Button>
+          </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
@@ -207,21 +207,21 @@ export default function NotificacoesPage() {
               <TabsTrigger value="todas" className="flex items-center gap-2">
                 Todas
                 <Badge variant="secondary">{todasNotificacoes.length}</Badge>
-              </TabsTrigger>
+          </TabsTrigger>
               <TabsTrigger value="nao-lidas" className="flex items-center gap-2">
                 Não lidas
                 <Badge variant="destructive">{naoLidas.length}</Badge>
-              </TabsTrigger>
-            </TabsList>
+          </TabsTrigger>
+        </TabsList>
           </Tabs>
-        </CardHeader>
-        <CardContent>
+            </CardHeader>
+            <CardContent>
           {loading ? (
             <div className="flex justify-center items-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
+                </div>
           ) : notificacoesAtuais.length > 0 ? (
-            <div className="space-y-4">
+              <div className="space-y-4">
               {notificacoesAtuais.map((notificacao) => (
                 <div key={notificacao.id}>
                   <div className="flex items-start justify-between gap-4 py-4">
@@ -261,7 +261,7 @@ export default function NotificacoesPage() {
                           onClick={() => handleMarcarComoLida(notificacao.id)}
                         >
                           <Check className="h-4 w-4" />
-                        </Button>
+                  </Button>
                       )}
                       <Button 
                         variant="ghost" 
@@ -275,8 +275,8 @@ export default function NotificacoesPage() {
                   <Separator />
                 </div>
               ))}
-            </div>
-          ) : (
+                    </div>
+                  ) : (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Bell className="h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium">Nenhuma notificação</h3>
@@ -285,10 +285,10 @@ export default function NotificacoesPage() {
                   ? 'Você não tem nenhuma notificação ainda' 
                   : 'Você não tem notificações não lidas'}
               </p>
-            </div>
+                </div>
           )}
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
     </div>
   )
 }

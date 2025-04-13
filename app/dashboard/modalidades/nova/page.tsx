@@ -13,22 +13,30 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ArrowLeft, Upload, Plus, X } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { modalidadesService, Modalidade } from "@/services/modalidades.service"
+
+// Interface estendida para incluir campos extras do formulário
+interface ModalidadeExtendida extends Modalidade {
+  type?: string;
+  level?: string;
+  age_range?: string;
+  requirements?: string[];
+}
 
 export default function NovaModalidadePage() {
   const router = useRouter()
   const { toast } = useToast()
 
-  const [formData, setFormData] = useState({
-    nome: "",
-    categoria: "",
-    tipo: "",
-    nivel: "",
-    faixaEtaria: "",
-    descricao: "",
-    requisitos: [""],
+  const [formData, setFormData] = useState<Partial<ModalidadeExtendida>>({
+    name: "",
+    category: "",
+    description: "",
+    is_active: true,
   })
 
-  const [imagem, setImagem] = useState<string | null>(null)
+  const [requisitos, setRequisitos] = useState<string[]>([""])
+  const [imagem, setImagem] = useState<File | null>(null)
+  const [imagemPreview, setImagemPreview] = useState<string | undefined>(undefined)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -41,36 +49,39 @@ export default function NovaModalidadePage() {
   }
 
   const handleRequisitoChange = (index: number, value: string) => {
-    const newRequisitos = [...formData.requisitos]
+    const newRequisitos = [...requisitos]
     newRequisitos[index] = value
-    setFormData((prev) => ({ ...prev, requisitos: newRequisitos }))
+    setRequisitos(newRequisitos)
   }
 
   const addRequisito = () => {
-    setFormData((prev) => ({ ...prev, requisitos: [...prev.requisitos, ""] }))
+    setRequisitos((prev) => [...prev, ""])
   }
 
   const removeRequisito = (index: number) => {
-    const newRequisitos = [...formData.requisitos]
+    const newRequisitos = [...requisitos]
     newRequisitos.splice(index, 1)
-    setFormData((prev) => ({ ...prev, requisitos: newRequisitos }))
+    setRequisitos(newRequisitos)
   }
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Simulando upload de imagem
+    // Armazenar o arquivo para envio futuro
+    setImagem(file)
+    
+    // Criar preview da imagem
     const imageUrl = URL.createObjectURL(file)
-    setImagem(imageUrl)
+    setImagemPreview(imageUrl)
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
 
     // Validação básica
-    if (!formData.nome || !formData.categoria) {
+    if (!formData.name || !formData.category) {
       toast({
         title: "Erro de validação",
         description: "Por favor, preencha todos os campos obrigatórios.",
@@ -80,14 +91,42 @@ export default function NovaModalidadePage() {
       return
     }
 
-    // Simulando envio para API
-    setTimeout(() => {
+    try {
+      // Filtrar requisitos vazios
+      const requisitosFiltrados = requisitos.filter(req => req.trim() !== '')
+      
+      // Preparar dados para envio
+      const dadosEnvio: Partial<ModalidadeExtendida> = {
+        ...formData,
+        requirements: requisitosFiltrados.length > 0 ? requisitosFiltrados : undefined,
+      }
+      
+      // Em um caso real, aqui seria feito o upload da imagem para um servidor
+      // e o URL retornado seria adicionado ao objeto dadosEnvio como image_url
+      if (imagem) {
+        // Simulação: em produção, isso seria substituído por um upload real
+        dadosEnvio.image_url = imagemPreview
+      }
+      
+      // Enviar para a API
+      const novaModalidade = await modalidadesService.criar(dadosEnvio)
+      
       toast({
         title: "Modalidade criada com sucesso",
         description: "A nova modalidade foi adicionada ao sistema.",
       })
+      
       router.push("/dashboard/modalidades")
-    }, 1500)
+    } catch (error: any) {
+      console.error("Erro ao criar modalidade:", error)
+      toast({
+        title: "Erro ao criar modalidade",
+        description: error.response?.data?.message || "Ocorreu um erro ao criar a modalidade. Tente novamente.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -110,11 +149,11 @@ export default function NovaModalidadePage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="nome">Nome da Modalidade *</Label>
+                <Label htmlFor="name">Nome da Modalidade *</Label>
                 <Input
-                  id="nome"
-                  name="nome"
-                  value={formData.nome}
+                  id="name"
+                  name="name"
+                  value={formData.name}
                   onChange={handleChange}
                   placeholder="Ex: Natação"
                   required
@@ -122,9 +161,9 @@ export default function NovaModalidadePage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="categoria">Categoria *</Label>
-                <Select value={formData.categoria} onValueChange={(value) => handleSelectChange("categoria", value)}>
-                  <SelectTrigger id="categoria">
+                <Label htmlFor="category">Categoria *</Label>
+                <Select value={formData.category} onValueChange={(value) => handleSelectChange("category", value)}>
+                  <SelectTrigger id="category">
                     <SelectValue placeholder="Selecione a categoria" />
                   </SelectTrigger>
                   <SelectContent>
@@ -141,9 +180,9 @@ export default function NovaModalidadePage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="tipo">Tipo</Label>
-                <Select value={formData.tipo} onValueChange={(value) => handleSelectChange("tipo", value)}>
-                  <SelectTrigger id="tipo">
+                <Label htmlFor="type">Tipo</Label>
+                <Select value={formData.type || ""} onValueChange={(value) => handleSelectChange("type", value)}>
+                  <SelectTrigger id="type">
                     <SelectValue placeholder="Selecione o tipo" />
                   </SelectTrigger>
                   <SelectContent>
@@ -155,9 +194,9 @@ export default function NovaModalidadePage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="nivel">Nível</Label>
-                <Select value={formData.nivel} onValueChange={(value) => handleSelectChange("nivel", value)}>
-                  <SelectTrigger id="nivel">
+                <Label htmlFor="level">Nível</Label>
+                <Select value={formData.level || ""} onValueChange={(value) => handleSelectChange("level", value)}>
+                  <SelectTrigger id="level">
                     <SelectValue placeholder="Selecione o nível" />
                   </SelectTrigger>
                   <SelectContent>
@@ -170,11 +209,11 @@ export default function NovaModalidadePage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="faixaEtaria">Faixa Etária Recomendada</Label>
+                <Label htmlFor="age_range">Faixa Etária Recomendada</Label>
                 <Input
-                  id="faixaEtaria"
-                  name="faixaEtaria"
-                  value={formData.faixaEtaria}
+                  id="age_range"
+                  name="age_range"
+                  value={formData.age_range || ""}
                   onChange={handleChange}
                   placeholder="Ex: 7 anos ou mais"
                 />
@@ -189,11 +228,11 @@ export default function NovaModalidadePage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="descricao">Descrição</Label>
+                <Label htmlFor="description">Descrição</Label>
                 <Textarea
-                  id="descricao"
-                  name="descricao"
-                  value={formData.descricao}
+                  id="description"
+                  name="description"
+                  value={formData.description || ""}
                   onChange={handleChange}
                   placeholder="Descreva a modalidade, suas características e objetivos..."
                   className="min-h-[120px]"
@@ -202,7 +241,7 @@ export default function NovaModalidadePage() {
 
               <div className="space-y-2">
                 <Label>Requisitos</Label>
-                {formData.requisitos.map((requisito, index) => (
+                {requisitos.map((requisito, index) => (
                   <div key={index} className="flex gap-2 items-center">
                     <Input
                       value={requisito}
@@ -214,7 +253,7 @@ export default function NovaModalidadePage() {
                       variant="ghost"
                       size="icon"
                       onClick={() => removeRequisito(index)}
-                      disabled={formData.requisitos.length === 1}
+                      disabled={requisitos.length === 1}
                     >
                       <X className="h-4 w-4" />
                     </Button>
@@ -229,10 +268,10 @@ export default function NovaModalidadePage() {
               <div className="space-y-2">
                 <Label>Imagem da Modalidade</Label>
                 <div className="border-2 border-dashed rounded-md p-4">
-                  {imagem ? (
+                  {imagemPreview ? (
                     <div className="relative aspect-video">
                       <img
-                        src={imagem || "/placeholder.svg"}
+                        src={imagemPreview}
                         alt="Preview"
                         className="w-full h-full object-cover rounded-md"
                       />
@@ -241,19 +280,27 @@ export default function NovaModalidadePage() {
                         variant="destructive"
                         size="icon"
                         className="absolute top-2 right-2 h-6 w-6"
-                        onClick={() => setImagem(null)}
+                        onClick={() => {
+                          setImagem(null)
+                          setImagemPreview(undefined)
+                        }}
                       >
                         <X className="h-3 w-3" />
                       </Button>
                     </div>
                   ) : (
                     <label className="flex flex-col items-center justify-center cursor-pointer">
-                      <div className="flex flex-col items-center justify-center p-4 text-center">
-                        <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-                        <p className="text-sm font-medium">Clique para adicionar uma imagem</p>
-                        <p className="text-xs text-muted-foreground mt-1">PNG, JPG ou JPEG (máx. 5MB)</p>
+                      <div className="flex flex-col items-center justify-center p-6 text-center">
+                        <Upload className="h-10 w-10 text-muted-foreground mb-2" />
+                        <p className="text-sm font-medium">Clique para fazer upload da imagem</p>
+                        <p className="text-xs text-muted-foreground mt-1">JPG, PNG ou SVG (máx. 2MB)</p>
                       </div>
-                      <Input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                      <Input 
+                        type="file" 
+                        className="hidden" 
+                        accept="image/jpeg,image/png,image/svg+xml"
+                        onChange={handleImageUpload}
+                      />
                     </label>
                   )}
                 </div>
@@ -262,12 +309,9 @@ export default function NovaModalidadePage() {
           </Card>
         </div>
 
-        <div className="mt-6 flex justify-end gap-4">
-          <Button variant="outline" type="button" onClick={() => router.push("/dashboard/modalidades")}>
-            Cancelar
-          </Button>
+        <div className="mt-6 flex justify-end">
           <Button type="submit" className="bg-green-700 hover:bg-green-600" disabled={isSubmitting}>
-            {isSubmitting ? "Salvando..." : "Salvar Modalidade"}
+            {isSubmitting ? "Criando..." : "Criar Modalidade"}
           </Button>
         </div>
       </form>

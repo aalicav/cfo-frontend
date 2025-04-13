@@ -10,10 +10,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Calendar } from "@/components/ui/calendar"
 import { ChevronLeft, Edit, Trash, Activity, Trophy, MessageCircleIcon as Message, Calendar as CalendarIcon } from "lucide-react"
-import { atletasService, avaliacoesService } from "@/services/api"
+import { atletasService } from "@/services/api"
 import { Atleta, Avaliacao } from "@/types"
 import Link from "next/link"
 import { ResponsiveContainer, BarChart as RechartsBarChart, Bar, XAxis, YAxis, Tooltip, Legend, RadarChart as RechartsRadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from "recharts"
+import http from "@/lib/http"
 
 export default function AtletaDetalhesPage() {
   const router = useRouter()
@@ -30,15 +31,15 @@ export default function AtletaDetalhesPage() {
       setIsLoading(true)
       try {
         // Carregar dados do atleta
-        const atletaResponse = await atletasService.obter(id)
-        if (atletaResponse && atletaResponse.data) {
-          setAtleta(atletaResponse.data)
+        const atletaData = await atletasService.obter(id)
+        if (atletaData) {
+          setAtleta(atletaData)
         }
         
-        // Carregar avaliações do atleta
-        const avaliacoesResponse = await avaliacoesService.listar({ athlete_id: id })
-        if (avaliacoesResponse && avaliacoesResponse.data) {
-          setAvaliacoes(avaliacoesResponse.data)
+        // Carregar avaliações do atleta usando a rota específica da API
+        const response = await http.get(`/athletes/${id}/evaluations`)
+        if (response.data?.data) {
+          setAvaliacoes(response.data.data)
         }
       } catch (error) {
         console.error("Erro ao carregar dados:", error)
