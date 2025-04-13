@@ -36,6 +36,13 @@ export default function NovoAtletaPage() {
     status: "active",
     joined_at: new Date().toISOString().split('T')[0],
     modalities: [],
+    is_professional: false,
+    has_health_insurance: false,
+    name: "",
+    email: "",
+    document_number: "",
+    phone: "",
+    address: "",
   })
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -49,7 +56,10 @@ export default function NovoAtletaPage() {
   }
 
   const handleSelectChange = (name: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [name]: value }))
+    if (value === "" && name === "status") {
+      return;
+    }
+    setFormData((prev) => ({ ...prev, [name]: value === "" ? undefined : value }))
   }
 
   const handleCheckboxChange = (name: string, checked: boolean) => {
@@ -80,10 +90,9 @@ export default function NovoAtletaPage() {
     setIsSubmitting(true)
 
     try {
-      // Preencher a data de nascimento se estiver definida
+      // Preencher a data de nascimento se estiver definida e ainda não foi adicionada ao formData
       const dadosEnvio: CriarAtletaPayload = {
-        ...formData,
-        birth_date: dataNascimento ? format(dataNascimento, 'yyyy-MM-dd') : undefined
+        ...formData
       }
 
       // Validação básica
@@ -96,6 +105,14 @@ export default function NovoAtletaPage() {
         setIsSubmitting(false)
         return
       }
+      
+      // Remover campos vazios para evitar problemas na API
+      Object.keys(dadosEnvio).forEach(key => {
+        const k = key as keyof CriarAtletaPayload;
+        if (dadosEnvio[k] === "" || dadosEnvio[k] === undefined) {
+          delete dadosEnvio[k as keyof CriarAtletaPayload];
+        }
+      });
       
       // Chamar o serviço para criar o atleta
       const novoAtleta = await atletasService.criar(dadosEnvio)
@@ -175,19 +192,35 @@ export default function NovoAtletaPage() {
                     <Label htmlFor="dataNascimento">Data de Nascimento *</Label>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full justify-start text-left font-normal">
+                        <Button 
+                          variant="outline" 
+                          className="w-full justify-start text-left font-normal"
+                          type="button"
+                        >
                           <Calendar className="mr-2 h-4 w-4" />
                           {dataNascimento
                             ? format(dataNascimento, "dd/MM/yyyy", { locale: ptBR })
                             : "Selecione uma data"}
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
+                      <PopoverContent className="w-auto p-0" align="start">
                         <CalendarComponent
                           mode="single"
                           selected={dataNascimento}
-                          onSelect={setDataNascimento}
+                          onSelect={(date) => {
+                            setDataNascimento(date);
+                            if (date) {
+                              setFormData(prev => ({
+                                ...prev,
+                                birth_date: format(date, 'yyyy-MM-dd')
+                              }));
+                            }
+                          }}
                           initialFocus
+                          disabled={(date) => 
+                            date > new Date() || 
+                            date < new Date('1900-01-01')
+                          }
                         />
                       </PopoverContent>
                     </Popover>
@@ -195,7 +228,10 @@ export default function NovoAtletaPage() {
 
                   <div className="space-y-2">
                     <Label htmlFor="gender">Gênero</Label>
-                    <Select value={formData.gender || ""} onValueChange={(value) => handleSelectChange("gender", value)}>
+                    <Select 
+                      value={formData.gender || ""} 
+                      onValueChange={(value) => handleSelectChange("gender", value)}
+                    >
                       <SelectTrigger id="gender">
                         <SelectValue placeholder="Selecione o gênero" />
                       </SelectTrigger>
@@ -301,7 +337,10 @@ export default function NovoAtletaPage() {
 
                   <div className="space-y-2">
                     <Label htmlFor="blood_type">Tipo Sanguíneo</Label>
-                    <Select value={formData.blood_type || ""} onValueChange={(value) => handleSelectChange("blood_type", value)}>
+                    <Select 
+                      value={formData.blood_type || ""} 
+                      onValueChange={(value) => handleSelectChange("blood_type", value)}
+                    >
                       <SelectTrigger id="blood_type">
                         <SelectValue placeholder="Selecione o tipo" />
                       </SelectTrigger>
@@ -358,8 +397,12 @@ export default function NovoAtletaPage() {
                   <div className="flex items-center space-x-2">
                     <Checkbox 
                       id="is_professional" 
-                      checked={!!formData.is_professional}
-                      onCheckedChange={(checked) => handleCheckboxChange("is_professional", !!checked)}
+                      checked={Boolean(formData.is_professional)}
+                      onCheckedChange={(checked) => {
+                        if (typeof checked === 'boolean') {
+                          handleCheckboxChange("is_professional", checked);
+                        }
+                      }}
                     />
                     <Label htmlFor="is_professional">Atleta Profissional</Label>
                   </div>
@@ -409,8 +452,12 @@ export default function NovoAtletaPage() {
                   <div className="flex items-center space-x-2">
                     <Checkbox 
                       id="has_health_insurance" 
-                      checked={!!formData.has_health_insurance}
-                      onCheckedChange={(checked) => handleCheckboxChange("has_health_insurance", !!checked)}
+                      checked={Boolean(formData.has_health_insurance)}
+                      onCheckedChange={(checked) => {
+                        if (typeof checked === 'boolean') {
+                          handleCheckboxChange("has_health_insurance", checked);
+                        }
+                      }}
                     />
                     <Label htmlFor="has_health_insurance">Possui Plano de Saúde</Label>
                   </div>
@@ -474,8 +521,9 @@ export default function NovoAtletaPage() {
                     >
                       <div className="flex items-center gap-2">
                         <Checkbox
-                          checked={formData.modalities?.includes(modalidade.nome) || false}
+                          checked={Boolean(formData.modalities?.includes(modalidade.nome))}
                           onCheckedChange={() => handleModalidadeToggle(modalidade.nome)}
+                          id={`modalidade-${modalidade.id}`}
                         />
                         <div>
                           <h3 className="font-medium">{modalidade.nome}</h3>
@@ -519,7 +567,10 @@ export default function NovoAtletaPage() {
 
                   <div className="space-y-2">
                     <Label htmlFor="document_type">Tipo de Documento</Label>
-                    <Select value={formData.document_type || ""} onValueChange={(value) => handleSelectChange("document_type", value)}>
+                    <Select 
+                      value={formData.document_type || ""} 
+                      onValueChange={(value) => handleSelectChange("document_type", value)}
+                    >
                       <SelectTrigger id="document_type">
                         <SelectValue placeholder="Selecione o tipo" />
                       </SelectTrigger>
@@ -534,7 +585,10 @@ export default function NovoAtletaPage() {
 
                   <div className="space-y-2">
                     <Label htmlFor="status">Status</Label>
-                    <Select value={formData.status} onValueChange={(value) => handleSelectChange("status", value as 'active' | 'inactive' | 'suspended' | 'pending')}>
+                    <Select 
+                      value={formData.status} 
+                      onValueChange={(value) => handleSelectChange("status", value as "active" | "inactive" | "suspended" | "pending")}
+                    >
                       <SelectTrigger id="status">
                         <SelectValue placeholder="Selecione o status" />
                       </SelectTrigger>
