@@ -1,7 +1,7 @@
 import http from '@/lib/http'
 
 // Interface principal do Time conforme definido no modelo do backend
-interface Time {
+export interface Time {
   id: number
   name: string
   modality: string
@@ -75,25 +75,23 @@ export interface CriarTimePayload {
   training_locations?: LocalTreino[]
 }
 
+// Interface para resposta paginada
+interface PaginatedResponse<T> {
+  current_page: number
+  data: T[]
+  from: number
+  last_page: number
+  per_page: number
+  to: number
+  total: number
+  items?: T[]
+}
+
 // Interface para resposta da API
 interface ApiResponse<T> {
   data: T
   message: string
-}
-
-// Interface para resposta paginada
-interface PaginatedResponse<T> {
-  data: {
-    current_page: number
-    data: T[]
-    from: number
-    last_page: number
-    per_page: number
-    to: number
-    total: number
-    items?: T[]
-  }
-  message: string
+  status?: string
 }
 
 // Parâmetros para listar times
@@ -109,40 +107,82 @@ interface ListarTimesParams {
 
 export const timesService = {
   // Buscar lista de times com filtros opcionais
-  listar: async (params?: ListarTimesParams) => {
-    const response = await http.get<ApiResponse<PaginatedResponse<Time>>>('/teams', { params })
-    return response.data?.data || []
+  listar: async (params?: ListarTimesParams): Promise<Time[]> => {
+    try {
+      const response = await http.get<ApiResponse<PaginatedResponse<Time>>>('/teams', { params })
+      
+      // Verificar se a resposta é válida e tem a estrutura esperada
+      if (response?.data?.data?.data && Array.isArray(response.data.data.data)) {
+        return response.data.data.data;
+      }
+      
+      // Se a resposta tiver a estrutura alternativa com 'items'
+      if (response?.data?.data?.items && Array.isArray(response.data.data.items)) {
+        return response.data.data.items;
+      }
+      
+      // Fallback para array vazio
+      return [];
+    } catch (error) {
+      console.error('Erro ao listar times:', error);
+      return [];
+    }
   },
 
   // Obter um time específico pelo ID
-  obter: async (id: number | string) => {
-    const response = await http.get<ApiResponse<Time>>(`/teams/${id}`)
-    return response.data?.data
+  obter: async (id: number | string): Promise<Time | undefined> => {
+    try {
+      const response = await http.get<ApiResponse<Time>>(`/teams/${id}`)
+      return response.data?.data
+    } catch (error) {
+      console.error(`Erro ao obter time ${id}:`, error);
+      return undefined;
+    }
   },
 
   // Criar um novo time
-  criar: async (dados: CriarTimePayload) => {
-    const response = await http.post<ApiResponse<Time>>('/teams', dados)
-    return response.data?.data
+  criar: async (dados: CriarTimePayload): Promise<Time | undefined> => {
+    try {
+      const response = await http.post<ApiResponse<Time>>('/teams', dados)
+      return response.data?.data
+    } catch (error) {
+      console.error('Erro ao criar time:', error);
+      throw error;
+    }
   },
 
   // Atualizar dados de um time existente
-  atualizar: async (id: number | string, dados: Partial<Time>) => {
-    const response = await http.put<ApiResponse<Time>>(`/teams/${id}`, dados)
-    return response.data?.data
+  atualizar: async (id: number | string, dados: Partial<Time>): Promise<Time | undefined> => {
+    try {
+      const response = await http.put<ApiResponse<Time>>(`/teams/${id}`, dados)
+      return response.data?.data
+    } catch (error) {
+      console.error(`Erro ao atualizar time ${id}:`, error);
+      throw error;
+    }
   },
 
   // Excluir um time
-  excluir: async (id: number | string) => {
-    await http.delete(`/teams/${id}`)
+  excluir: async (id: number | string): Promise<void> => {
+    try {
+      await http.delete(`/teams/${id}`)
+    } catch (error) {
+      console.error(`Erro ao excluir time ${id}:`, error);
+      throw error;
+    }
   },
 
   // Gerenciar atletas do time
-  gerenciarAtletas: async (timeId: number | string, atletasIds: number[]) => {
-    const response = await http.post<ApiResponse<Time>>(`/teams/${timeId}/athletes`, { 
-      athletes: atletasIds 
-    })
-    return response.data?.data
+  gerenciarAtletas: async (timeId: number | string, atletasIds: number[]): Promise<Time | undefined> => {
+    try {
+      const response = await http.post<ApiResponse<Time>>(`/teams/${timeId}/athletes`, { 
+        athletes: atletasIds 
+      })
+      return response.data?.data
+    } catch (error) {
+      console.error(`Erro ao gerenciar atletas do time ${timeId}:`, error);
+      throw error;
+    }
   },
 
   // Gerenciar comitê técnico do time

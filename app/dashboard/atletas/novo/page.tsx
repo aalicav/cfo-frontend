@@ -20,6 +20,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
+import { atletasService } from "@/services/api"
+import { Atleta } from "@/types"
+import { CriarAtletaPayload } from "@/services/atletas.service"
 
 export default function NovoAtletaPage() {
   const router = useRouter()
@@ -29,19 +32,10 @@ export default function NovoAtletaPage() {
   const [dataNascimento, setDataNascimento] = useState<Date>()
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const [formData, setFormData] = useState({
-    nome: "",
-    genero: "",
-    documento: "",
-    email: "",
-    telefone: "",
-    endereco: "",
-    altura: "",
-    peso: "",
-    tipoSanguineo: "",
-    observacoes: "",
-    modalidades: [] as string[],
-    contatosEmergencia: [{ nome: "", parentesco: "", telefone: "" }],
+  const [formData, setFormData] = useState<CriarAtletaPayload>({
+    status: "active",
+    joined_at: new Date().toISOString().split('T')[0],
+    modalities: [],
   })
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -49,66 +43,80 @@ export default function NovoAtletaPage() {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
+  const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setFormData((prev) => ({ ...prev, [name]: value ? Number(value) : undefined }))
+  }
+
   const handleSelectChange = (name: string, value: string) => {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
+  const handleCheckboxChange = (name: string, checked: boolean) => {
+    setFormData((prev) => ({ ...prev, [name]: checked }))
+  }
+
   const handleModalidadeToggle = (modalidade: string) => {
     setFormData((prev) => {
-      const modalidades = [...prev.modalidades]
-      if (modalidades.includes(modalidade)) {
-        return { ...prev, modalidades: modalidades.filter((m) => m !== modalidade) }
+      const modalities = [...(prev.modalities || [])]
+      if (modalities.includes(modalidade)) {
+        return { ...prev, modalities: modalities.filter((m) => m !== modalidade) }
       } else {
-        return { ...prev, modalidades: [...modalidades, modalidade] }
+        return { ...prev, modalities: [...modalities, modalidade] }
       }
     })
   }
 
-  const handleContatoChange = (index: number, field: string, value: string) => {
-    const newContatos = [...formData.contatosEmergencia]
-    newContatos[index] = { ...newContatos[index], [field]: value }
-    setFormData((prev) => ({ ...prev, contatosEmergencia: newContatos }))
+  const handleContatoChange = (field: string, value: string) => {
+    if (field === "emergency_contact_name") {
+      setFormData((prev) => ({ ...prev, emergency_contact_name: value }))
+    } else if (field === "emergency_contact_phone") {
+      setFormData((prev) => ({ ...prev, emergency_contact_phone: value }))
+    }
   }
 
-  const addContato = () => {
-    setFormData((prev) => ({
-      ...prev,
-      contatosEmergencia: [...prev.contatosEmergencia, { nome: "", parentesco: "", telefone: "" }],
-    }))
-  }
-
-  const removeContato = (index: number) => {
-    const newContatos = [...formData.contatosEmergencia]
-    newContatos.splice(index, 1)
-    setFormData((prev) => ({
-      ...prev,
-      contatosEmergencia: newContatos.length ? newContatos : [{ nome: "", parentesco: "", telefone: "" }],
-    }))
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
 
-    // Validação básica
-    if (!formData.nome || !formData.documento || !dataNascimento) {
-      toast({
-        title: "Erro de validação",
-        description: "Por favor, preencha todos os campos obrigatórios.",
-        variant: "destructive",
-      })
-      setIsSubmitting(false)
-      return
-    }
+    try {
+      // Preencher a data de nascimento se estiver definida
+      const dadosEnvio: CriarAtletaPayload = {
+        ...formData,
+        birth_date: dataNascimento ? format(dataNascimento, 'yyyy-MM-dd') : undefined
+      }
 
-    // Simulando envio para API
-    setTimeout(() => {
+      // Validação básica
+      if (!dadosEnvio.document_number) {
+        toast({
+          title: "Erro de validação",
+          description: "Por favor, preencha o número do documento.",
+          variant: "destructive",
+        })
+        setIsSubmitting(false)
+        return
+      }
+      
+      // Chamar o serviço para criar o atleta
+      const novoAtleta = await atletasService.criar(dadosEnvio)
+      
       toast({
         title: "Atleta cadastrado com sucesso",
         description: "O novo atleta foi adicionado ao sistema.",
       })
+      
       router.push("/dashboard/atletas")
-    }, 1500)
+    } catch (error: any) {
+      console.error("Erro ao cadastrar atleta:", error)
+      
+      toast({
+        title: "Erro ao cadastrar atleta",
+        description: error.response?.data?.message || "Ocorreu um erro ao cadastrar o atleta. Tente novamente.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const nextTab = () => {
@@ -152,11 +160,11 @@ export default function NovoAtletaPage() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="nome">Nome Completo *</Label>
+                    <Label htmlFor="name">Nome Completo *</Label>
                     <Input
-                      id="nome"
-                      name="nome"
-                      value={formData.nome}
+                      id="name"
+                      name="name"
+                      value={formData.name || ""}
                       onChange={handleChange}
                       placeholder="Nome completo do atleta"
                       required
@@ -186,9 +194,9 @@ export default function NovoAtletaPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="genero">Gênero</Label>
-                    <Select value={formData.genero} onValueChange={(value) => handleSelectChange("genero", value)}>
-                      <SelectTrigger id="genero">
+                    <Label htmlFor="gender">Gênero</Label>
+                    <Select value={formData.gender || ""} onValueChange={(value) => handleSelectChange("gender", value)}>
+                      <SelectTrigger id="gender">
                         <SelectValue placeholder="Selecione o gênero" />
                       </SelectTrigger>
                       <SelectContent>
@@ -200,11 +208,11 @@ export default function NovoAtletaPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="documento">Documento (CPF) *</Label>
+                    <Label htmlFor="document_number">Documento (CPF) *</Label>
                     <Input
-                      id="documento"
-                      name="documento"
-                      value={formData.documento}
+                      id="document_number"
+                      name="document_number"
+                      value={formData.document_number || ""}
                       onChange={handleChange}
                       placeholder="000.000.000-00"
                       required
@@ -217,65 +225,84 @@ export default function NovoAtletaPage() {
                       id="email"
                       name="email"
                       type="email"
-                      value={formData.email}
+                      value={formData.email || ""}
                       onChange={handleChange}
                       placeholder="email@exemplo.com"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="telefone">Telefone</Label>
+                    <Label htmlFor="phone">Telefone</Label>
                     <Input
-                      id="telefone"
-                      name="telefone"
-                      value={formData.telefone}
+                      id="phone"
+                      name="phone"
+                      value={formData.phone || ""}
                       onChange={handleChange}
                       placeholder="(00) 00000-0000"
                     />
                   </div>
 
                   <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="endereco">Endereço</Label>
+                    <Label htmlFor="address">Endereço</Label>
                     <Input
-                      id="endereco"
-                      name="endereco"
-                      value={formData.endereco}
+                      id="address"
+                      name="address"
+                      value={formData.address || ""}
                       onChange={handleChange}
                       placeholder="Endereço completo"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="altura">Altura (cm)</Label>
+                    <Label htmlFor="city">Cidade</Label>
                     <Input
-                      id="altura"
-                      name="altura"
-                      type="number"
-                      value={formData.altura}
+                      id="city"
+                      name="city"
+                      value={formData.city || ""}
                       onChange={handleChange}
+                      placeholder="Cidade"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="state">Estado</Label>
+                    <Input
+                      id="state"
+                      name="state"
+                      value={formData.state || ""}
+                      onChange={handleChange}
+                      placeholder="Estado"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="height">Altura (cm)</Label>
+                    <Input
+                      id="height"
+                      name="height"
+                      type="number"
+                      value={formData.height || ""}
+                      onChange={handleNumberChange}
                       placeholder="Ex: 175"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="peso">Peso (kg)</Label>
+                    <Label htmlFor="weight">Peso (kg)</Label>
                     <Input
-                      id="peso"
-                      name="peso"
+                      id="weight"
+                      name="weight"
                       type="number"
-                      value={formData.peso}
-                      onChange={handleChange}
+                      value={formData.weight || ""}
+                      onChange={handleNumberChange}
                       placeholder="Ex: 70"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="tipoSanguineo">Tipo Sanguíneo</Label>
-                    <Select
-                      value={formData.tipoSanguineo}
-                      onValueChange={(value) => handleSelectChange("tipoSanguineo", value)}
-                    >
-                      <SelectTrigger id="tipoSanguineo">
+                    <Label htmlFor="blood_type">Tipo Sanguíneo</Label>
+                    <Select value={formData.blood_type || ""} onValueChange={(value) => handleSelectChange("blood_type", value)}>
+                      <SelectTrigger id="blood_type">
                         <SelectValue placeholder="Selecione o tipo" />
                       </SelectTrigger>
                       <SelectContent>
@@ -290,18 +317,52 @@ export default function NovoAtletaPage() {
                       </SelectContent>
                     </Select>
                   </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="nationality">Nacionalidade</Label>
+                    <Input
+                      id="nationality"
+                      name="nationality"
+                      value={formData.nationality || ""}
+                      onChange={handleChange}
+                      placeholder="Ex: Brasileira"
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="observacoes">Observações</Label>
+                  <Label htmlFor="medical_conditions">Condições Médicas</Label>
                   <Textarea
-                    id="observacoes"
-                    name="observacoes"
-                    value={formData.observacoes}
+                    id="medical_conditions"
+                    name="medical_conditions"
+                    value={formData.medical_conditions || ""}
                     onChange={handleChange}
-                    placeholder="Informações adicionais relevantes"
-                    className="min-h-[100px]"
+                    placeholder="Informações sobre condições médicas relevantes"
+                    className="min-h-[80px]"
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="allergies">Alergias</Label>
+                  <Textarea
+                    id="allergies"
+                    name="allergies"
+                    value={formData.allergies || ""}
+                    onChange={handleChange}
+                    placeholder="Informações sobre alergias"
+                    className="min-h-[80px]"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="is_professional" 
+                      checked={!!formData.is_professional}
+                      onCheckedChange={(checked) => handleCheckboxChange("is_professional", !!checked)}
+                    />
+                    <Label htmlFor="is_professional">Atleta Profissional</Label>
+                  </div>
                 </div>
 
                 <div className="flex justify-end">
@@ -320,59 +381,66 @@ export default function NovoAtletaPage() {
                 <CardDescription>Adicione contatos para casos de emergência</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {formData.contatosEmergencia.map((contato, index) => (
-                  <div key={index} className="border rounded-md p-4 space-y-4">
-                    <div className="flex justify-between items-start">
-                      <h3 className="font-medium">Contato {index + 1}</h3>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeContato(index)}
-                        disabled={formData.contatosEmergencia.length === 1}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
+                <div className="border rounded-md p-4 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="emergency_contact_name">Nome do Contato de Emergência</Label>
+                      <Input
+                        id="emergency_contact_name"
+                        value={formData.emergency_contact_name || ""}
+                        onChange={(e) => handleContatoChange("emergency_contact_name", e.target.value)}
+                        placeholder="Nome do contato"
+                      />
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor={`contato-${index}-nome`}>Nome</Label>
-                        <Input
-                          id={`contato-${index}-nome`}
-                          value={contato.nome}
-                          onChange={(e) => handleContatoChange(index, "nome", e.target.value)}
-                          placeholder="Nome do contato"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor={`contato-${index}-parentesco`}>Parentesco</Label>
-                        <Input
-                          id={`contato-${index}-parentesco`}
-                          value={contato.parentesco}
-                          onChange={(e) => handleContatoChange(index, "parentesco", e.target.value)}
-                          placeholder="Ex: Mãe, Pai, Responsável"
-                        />
-                      </div>
-
-                      <div className="space-y-2 md:col-span-2">
-                        <Label htmlFor={`contato-${index}-telefone`}>Telefone</Label>
-                        <Input
-                          id={`contato-${index}-telefone`}
-                          value={contato.telefone}
-                          onChange={(e) => handleContatoChange(index, "telefone", e.target.value)}
-                          placeholder="(00) 00000-0000"
-                        />
-                      </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="emergency_contact_phone">Telefone de Emergência</Label>
+                      <Input
+                        id="emergency_contact_phone"
+                        value={formData.emergency_contact_phone || ""}
+                        onChange={(e) => handleContatoChange("emergency_contact_phone", e.target.value)}
+                        placeholder="(00) 00000-0000"
+                      />
                     </div>
                   </div>
-                ))}
+                </div>
 
-                <Button type="button" variant="outline" className="w-full" onClick={addContato}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Adicionar Contato
-                </Button>
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="has_health_insurance" 
+                      checked={!!formData.has_health_insurance}
+                      onCheckedChange={(checked) => handleCheckboxChange("has_health_insurance", !!checked)}
+                    />
+                    <Label htmlFor="has_health_insurance">Possui Plano de Saúde</Label>
+                  </div>
+                </div>
+
+                {formData.has_health_insurance && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="health_insurance_provider">Plano de Saúde</Label>
+                      <Input
+                        id="health_insurance_provider"
+                        name="health_insurance_provider"
+                        value={formData.health_insurance_provider || ""}
+                        onChange={handleChange}
+                        placeholder="Nome da operadora"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="health_insurance_number">Número da Carteirinha</Label>
+                      <Input
+                        id="health_insurance_number"
+                        name="health_insurance_number"
+                        value={formData.health_insurance_number || ""}
+                        onChange={handleChange}
+                        placeholder="Número da carteirinha"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex justify-between mt-6">
                   <Button type="button" variant="outline" onClick={prevTab}>
@@ -398,7 +466,7 @@ export default function NovoAtletaPage() {
                     <div
                       key={modalidade.id}
                       className={`border rounded-md p-4 cursor-pointer transition-colors ${
-                        formData.modalidades.includes(modalidade.nome)
+                        formData.modalities?.includes(modalidade.nome)
                           ? "border-green-500 bg-green-50"
                           : "hover:border-gray-400"
                       }`}
@@ -406,7 +474,7 @@ export default function NovoAtletaPage() {
                     >
                       <div className="flex items-center gap-2">
                         <Checkbox
-                          checked={formData.modalidades.includes(modalidade.nome)}
+                          checked={formData.modalities?.includes(modalidade.nome) || false}
                           onCheckedChange={() => handleModalidadeToggle(modalidade.nome)}
                         />
                         <div>
@@ -434,9 +502,64 @@ export default function NovoAtletaPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Documentos</CardTitle>
-                <CardDescription>Faça upload dos documentos necessários</CardDescription>
+                <CardDescription>Configure informações adicionais e documentos</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="registration_number">Número de Registro</Label>
+                    <Input
+                      id="registration_number"
+                      name="registration_number"
+                      value={formData.registration_number || ""}
+                      onChange={handleChange}
+                      placeholder="Número de identificação único"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="document_type">Tipo de Documento</Label>
+                    <Select value={formData.document_type || ""} onValueChange={(value) => handleSelectChange("document_type", value)}>
+                      <SelectTrigger id="document_type">
+                        <SelectValue placeholder="Selecione o tipo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="CPF">CPF</SelectItem>
+                        <SelectItem value="RG">RG</SelectItem>
+                        <SelectItem value="Passaporte">Passaporte</SelectItem>
+                        <SelectItem value="CNH">CNH</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="status">Status</Label>
+                    <Select value={formData.status} onValueChange={(value) => handleSelectChange("status", value as 'active' | 'inactive' | 'suspended' | 'pending')}>
+                      <SelectTrigger id="status">
+                        <SelectValue placeholder="Selecione o status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">Ativo</SelectItem>
+                        <SelectItem value="inactive">Inativo</SelectItem>
+                        <SelectItem value="pending">Pendente</SelectItem>
+                        <SelectItem value="suspended">Suspenso</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Observações</Label>
+                  <Textarea
+                    id="notes"
+                    name="notes"
+                    value={formData.notes || ""}
+                    onChange={handleChange}
+                    placeholder="Informações adicionais relevantes"
+                    className="min-h-[100px]"
+                  />
+                </div>
+
                 <div className="space-y-4">
                   <div>
                     <h3 className="font-medium mb-2">Atestado Médico</h3>
@@ -453,26 +576,12 @@ export default function NovoAtletaPage() {
                   </div>
 
                   <div>
-                    <h3 className="font-medium mb-2">Documento de Identidade (RG/CPF)</h3>
+                    <h3 className="font-medium mb-2">Documento de Identidade</h3>
                     <div className="border-2 border-dashed rounded-md p-6">
                       <label className="flex flex-col items-center justify-center cursor-pointer">
                         <div className="flex flex-col items-center justify-center p-4 text-center">
                           <Upload className="h-8 w-8 text-muted-foreground mb-2" />
                           <p className="text-sm font-medium">Clique para fazer upload do documento</p>
-                          <p className="text-xs text-muted-foreground mt-1">PDF, JPG ou PNG (máx. 5MB)</p>
-                        </div>
-                        <Input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png" />
-                      </label>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 className="font-medium mb-2">Autorização (para menores de idade)</h3>
-                    <div className="border-2 border-dashed rounded-md p-6">
-                      <label className="flex flex-col items-center justify-center cursor-pointer">
-                        <div className="flex flex-col items-center justify-center p-4 text-center">
-                          <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-                          <p className="text-sm font-medium">Clique para fazer upload da autorização</p>
                           <p className="text-xs text-muted-foreground mt-1">PDF, JPG ou PNG (máx. 5MB)</p>
                         </div>
                         <Input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png" />

@@ -22,7 +22,7 @@ import { ptBR } from "date-fns/locale"
 import { timesService, CriarTimePayload, ComiteItem, LocalTreino } from "@/services/times.service"
 import { Modalidade, modalidadesService } from "@/services/modalidades.service"
 import { atletasService } from "@/services/atletas.service"
-import { Atleta } from "@/services/api"
+import { Atleta } from "@/types"
 
 export default function NovoTimePage() {
   const router = useRouter()
@@ -476,9 +476,9 @@ export default function NovoTimePage() {
                                 onCheckedChange={() => handleAtletaToggle(atleta.id)}
                               />
                               <div>
-                                <h3 className="font-medium">{atleta.nome}</h3>
+                                <h3 className="font-medium">{atleta.user?.name}</h3>
                                 <p className="text-sm text-muted-foreground">
-                                  {atleta.dataNascimento && new Date().getFullYear() - new Date(atleta.dataNascimento).getFullYear()} anos • {atleta.status || 'Sem status'}
+                                  {atleta.birth_date && new Date().getFullYear() - new Date(atleta.birth_date).getFullYear()} anos • {atleta.status || 'Sem status'}
                                 </p>
                               </div>
                             </div>

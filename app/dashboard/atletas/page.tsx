@@ -44,6 +44,7 @@ import { atletasService } from "@/services/api"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { Atleta } from "@/types"
+import { ListarAtletasParams } from "@/services/atletas.service"
 
 export default function AtletasPage() {
   const [data, setData] = useState<Atleta[]>([])
@@ -66,29 +67,30 @@ export default function AtletasPage() {
   const fetchAtletas = async () => {
     setLoading(true)
     try {
-      const params = {
+      const params: ListarAtletasParams = {
         page: currentPage,
-        limit: itemsPerPage,
+        per_page: itemsPerPage,
         search: searchTerm || undefined,
         modality: modalidadeFiltro !== "todas" ? modalidadeFiltro : undefined,
         category: categoriaFiltro !== "todas" ? categoriaFiltro : undefined,
-        status: statusFiltro !== "todos" ? statusFiltro : undefined,
+        status: statusFiltro !== "todos" ? 
+          (statusFiltro as 'active' | 'inactive' | 'suspended' | 'pending' | 'ativo' | 'inativo' | 'suspenso') : 
+          undefined,
       }
       
-      const response = await atletasService.listar(params)
-      if (response && response.data) {
-        setData(response.data)
-        // Se a API retornar metadados de paginação
-        if (response.meta && response.meta.totalPages) {
-          setTotalPages(response.meta.totalPages)
-        } else {
-          // Cálculo aproximado se não houver metadados
-          setTotalPages(Math.ceil(response.data.length / itemsPerPage))
-        }
+      const atletas = await atletasService.listar(params)
+      
+      if (Array.isArray(atletas)) {
+        setData(atletas as unknown as Atleta[])
+        setTotalPages(Math.ceil(atletas.length / itemsPerPage))
+      } else {
+        setData([])
+        setTotalPages(1)
       }
     } catch (error) {
       console.error("Erro ao carregar atletas:", error)
       setError("Ocorreu um erro ao carregar os atletas. Tente novamente mais tarde.")
+      setData([])
     } finally {
       setLoading(false)
     }
