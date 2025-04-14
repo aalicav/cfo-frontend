@@ -57,11 +57,24 @@ export default function NovoAtletaPage() {
         // Primeiro tentamos carregar modalidades ativas apenas
         const response = await modalidadesService.listar({ is_active: true })
         
-        if (Array.isArray(response)) {
-          setModalidades(response)
+        // Verificar o formato da resposta
+        if (response && typeof response === 'object') {
+          // Se a resposta tem a estrutura {status: "success", data: [...]}
+          if ('status' in response && response.status === 'success' && 'data' in response && Array.isArray(response.data)) {
+            setModalidades(response.data)
+          } 
+          // Se a resposta já é um array de modalidades
+          else if (Array.isArray(response)) {
+            setModalidades(response)
+          } 
+          // Outros formatos não reconhecidos
+          else {
+            console.error("Formato inesperado na resposta da API:", response)
+            setModalidades([])
+          }
         } else {
-          // Caso a API retorne um formato diferente
-          console.error("Formato inesperado na resposta da API:", response)
+          // Caso a API retorne null, undefined ou outro tipo não objeto
+          console.error("Resposta inválida da API:", response)
           setModalidades([])
         }
       } catch (error) {
@@ -589,8 +602,21 @@ export default function NovoAtletaPage() {
                         setCarregandoModalidades(true)
                         modalidadesService.listar()
                           .then((response: any) => {
-                            if (Array.isArray(response)) {
-                              setModalidades(response)
+                            // Verificar o formato da resposta
+                            if (response && typeof response === 'object') {
+                              // Se a resposta tem a estrutura {status: "success", data: [...]}
+                              if ('status' in response && response.status === 'success' && 'data' in response && Array.isArray(response.data)) {
+                                setModalidades(response.data)
+                              } 
+                              // Se a resposta já é um array de modalidades
+                              else if (Array.isArray(response)) {
+                                setModalidades(response)
+                              }
+                              else {
+                                setModalidades([])
+                              }
+                            } else {
+                              setModalidades([])
                             }
                           })
                           .catch((error: Error) => {
