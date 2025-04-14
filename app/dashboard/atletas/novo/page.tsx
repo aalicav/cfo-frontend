@@ -13,10 +13,11 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ArrowLeft, Upload, Calendar } from "lucide-react"
+import { ArrowLeft, Upload, Calendar, Search } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
+import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { atletasService } from "@/services/api"
@@ -32,6 +33,7 @@ export default function NovoAtletaPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [modalidades, setModalidades] = useState<Modalidade[]>([])
   const [carregandoModalidades, setCarregandoModalidades] = useState(true)
+  const [modalidadesFiltradas, setModalidadesFiltradas] = useState<Modalidade[]>([])
 
   const [formData, setFormData] = useState<CriarAtletaPayload>({
     status: "active",
@@ -51,10 +53,16 @@ export default function NovoAtletaPage() {
     const carregarModalidades = async () => {
       try {
         setCarregandoModalidades(true)
-        const response = await modalidadesService.listar()
+        
+        // Primeiro tentamos carregar modalidades ativas apenas
+        const response = await modalidadesService.listar({ is_active: true })
         
         if (Array.isArray(response)) {
           setModalidades(response)
+        } else {
+          // Caso a API retorne um formato diferente
+          console.error("Formato inesperado na resposta da API:", response)
+          setModalidades([])
         }
       } catch (error) {
         console.error("Erro ao carregar modalidades:", error)
@@ -63,6 +71,7 @@ export default function NovoAtletaPage() {
           description: "Não foi possível carregar a lista de modalidades. Tente novamente mais tarde.",
           variant: "destructive",
         })
+        setModalidades([])
       } finally {
         setCarregandoModalidades(false)
       }
@@ -175,14 +184,14 @@ export default function NovoAtletaPage() {
   }
 
   // Agrupar modalidades por categoria para exibição
-  const modalidadesPorCategoria = modalidades.reduce((acc, modalidade) => {
+  const modalidadesPorCategoria = modalidades.reduce<Record<string, Modalidade[]>>((acc, modalidade) => {
     const categoria = modalidade.category || 'Sem categoria';
     if (!acc[categoria]) {
       acc[categoria] = [];
     }
     acc[categoria].push(modalidade);
     return acc;
-  }, {} as Record<string, Modalidade[]>);
+  }, {});
 
   return (
     <div className="space-y-6">
@@ -545,25 +554,132 @@ export default function NovoAtletaPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {carregandoModalidades ? (
-                  <div className="flex justify-center py-8">
-                    <p>Carregando modalidades...</p>
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+                    <p className="mt-4 text-sm text-muted-foreground">Carregando modalidades...</p>
                   </div>
                 ) : modalidades.length === 0 ? (
-                  <div className="flex justify-center py-8">
-                    <p>Nenhuma modalidade encontrada</p>
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="48"
+                      height="48"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="text-muted-foreground/50 mb-3"
+                    >
+                      <path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"></path>
+                      <path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"></path>
+                      <circle cx="12" cy="12" r="2"></circle>
+                      <path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"></path>
+                      <path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"></path>
+                    </svg>
+                    <h3 className="text-lg font-medium mb-2">Nenhuma modalidade encontrada</h3>
+                    <p className="text-muted-foreground max-w-sm">
+                      Parece que não existem modalidades cadastradas no sistema. Entre em contato com o administrador.
+                    </p>
+                    <Button 
+                      variant="outline" 
+                      className="mt-4" 
+                      onClick={() => {
+                        setCarregandoModalidades(true)
+                        modalidadesService.listar()
+                          .then((response: any) => {
+                            if (Array.isArray(response)) {
+                              setModalidades(response)
+                            }
+                          })
+                          .catch((error: Error) => {
+                            console.error("Erro ao carregar modalidades:", error)
+                            toast({
+                              title: "Erro ao carregar modalidades",
+                              description: "Não foi possível carregar a lista de modalidades.",
+                              variant: "destructive",
+                            })
+                          })
+                          .finally(() => {
+                            setCarregandoModalidades(false)
+                          })
+                      }}
+                    >
+                      Tentar novamente
+                    </Button>
                   </div>
                 ) : (
                   <div className="space-y-6">
+                    <div className="relative">
+                      <Input
+                        type="search"
+                        placeholder="Buscar modalidades..."
+                        className="pl-8 mb-4"
+                        onChange={(e) => {
+                          const searchTerm = e.target.value.toLowerCase()
+                          // Filtrar modalidades no client-side para busca rápida
+                          const filtered = modalidades.filter(m => 
+                            m.name.toLowerCase().includes(searchTerm) || 
+                            (m.description && m.description.toLowerCase().includes(searchTerm)) ||
+                            (m.category && m.category.toLowerCase().includes(searchTerm))
+                          )
+                          // Se o termo de busca está vazio, simplesmente use todas as modalidades
+                          // Caso contrário, use as filtradas
+                          setModalidadesFiltradas(searchTerm === '' ? [] : filtered)
+                        }}
+                      />
+                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    </div>
+                    
                     {Object.entries(modalidadesPorCategoria).map(([categoria, modalidadesCategoria]) => (
                       <div key={categoria} className="space-y-3">
-                        <h3 className="font-semibold text-lg">{categoria}</h3>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-lg">{categoria}</h3>
+                          <Badge variant="outline" className="ml-2">
+                            {modalidadesCategoria.length}
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="ml-auto h-8"
+                            onClick={() => {
+                              // Verificar se todas as modalidades desta categoria estão selecionadas
+                              const todasSelecionadas = (modalidadesCategoria as Modalidade[]).every(m => 
+                                formData.modalities?.includes(m.name)
+                              )
+                              
+                              // Se todas já estiverem selecionadas, desmarcar todas
+                              // Caso contrário, selecionar todas
+                              if (todasSelecionadas) {
+                                setFormData(prev => ({
+                                  ...prev,
+                                  modalities: (prev.modalities || []).filter(m => 
+                                    !(modalidadesCategoria as Modalidade[]).some(mc => mc.name === m)
+                                  )
+                                }))
+                              } else {
+                                const modalidadesAtuais = new Set(formData.modalities || [])
+                                ;(modalidadesCategoria as Modalidade[]).forEach(m => modalidadesAtuais.add(m.name))
+                                setFormData(prev => ({
+                                  ...prev,
+                                  modalities: Array.from(modalidadesAtuais)
+                                }))
+                              }
+                            }}
+                          >
+                            {(modalidadesCategoria as Modalidade[]).every(m => formData.modalities?.includes(m.name))
+                              ? "Desmarcar todas"
+                              : "Selecionar todas"}
+                          </Button>
+                        </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {modalidadesCategoria.map((modalidade) => (
+                          {(modalidadesCategoria as Modalidade[]).map((modalidade) => (
                             <div
                               key={modalidade.id}
                               className={`border rounded-md p-4 cursor-pointer transition-colors ${
                                 formData.modalities?.includes(modalidade.name)
-                                  ? "border-green-500 bg-green-50"
+                                  ? "border-green-500 bg-green-50 dark:bg-green-900/20"
                                   : "hover:border-gray-400"
                               }`}
                               onClick={() => handleModalidadeToggle(modalidade.name)}
@@ -577,7 +693,7 @@ export default function NovoAtletaPage() {
                                 <div>
                                   <h3 className="font-medium">{modalidade.name}</h3>
                                   {modalidade.description && (
-                                    <p className="text-sm text-muted-foreground">{modalidade.description}</p>
+                                    <p className="text-sm text-muted-foreground line-clamp-2">{modalidade.description}</p>
                                   )}
                                 </div>
                               </div>
