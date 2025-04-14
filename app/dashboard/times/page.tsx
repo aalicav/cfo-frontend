@@ -66,9 +66,9 @@ export default function TimesPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [perPage, setPerPage] = useState(6)
-  const [modalidade, setModalidade] = useState<string>("")
+  const [modalidade, setModalidade] = useState<string>("all")
   const [modalidades, setModalidades] = useState<string[]>([])
-  const [statusFilter, setStatusFilter] = useState<TimeStatus | "">("")
+  const [statusFilter, setStatusFilter] = useState<TimeStatus | "all">("all")
   const [viewType, setViewType] = useState<string>('grid')
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState('')
@@ -81,8 +81,8 @@ export default function TimesPage() {
         page,
         per_page: perPage,
         search: debouncedSearchTerm || undefined,
-        modality: modalidade || undefined,
-        status: statusFilter || undefined,
+        modality: modalidade !== "all" ? modalidade : undefined,
+        status: statusFilter !== "all" ? statusFilter as TimeStatus : undefined,
         sort_by: 'name',
         sort_dir: 'asc'
       }
@@ -168,14 +168,14 @@ export default function TimesPage() {
     if (page) setCurrentPage(parseInt(page))
     if (search) setSearchTerm(search)
     if (modality) setModalidade(modality)
-    if (status) setStatusFilter(status as TimeStatus | "")
+    if (status) setStatusFilter(status as TimeStatus | "all")
   }, [searchParams])
 
   // Limpar pesquisa e resetar para primeira página
   const handleClearSearch = () => {
     setSearchTerm("")
-    setModalidade("")
-    setStatusFilter("")
+    setModalidade("all")
+    setStatusFilter("all")
     setCurrentPage(1)
   }
 
@@ -184,7 +184,9 @@ export default function TimesPage() {
     setCurrentPage(page)
   }
 
-  const temFiltrosAtivos = debouncedSearchTerm || modalidade || statusFilter
+  const temFiltrosAtivos = debouncedSearchTerm || 
+                          (modalidade && modalidade !== "all") || 
+                          (statusFilter && statusFilter !== "all")
   
   const formatarData = (dataString?: string) => {
     if (!dataString) return "N/A"
@@ -253,7 +255,7 @@ export default function TimesPage() {
                 <SelectValue placeholder="Modalidade" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todas as modalidades</SelectItem>
+                <SelectItem value="all">Todas as modalidades</SelectItem>
                 {modalidades.map((mod) => (
                   <SelectItem key={mod} value={mod}>{mod}</SelectItem>
                 ))}
@@ -263,14 +265,14 @@ export default function TimesPage() {
           
           <div className="w-full md:w-48">
             <Select value={statusFilter} onValueChange={(value) => {
-              setStatusFilter(value as TimeStatus | "")
+              setStatusFilter(value as TimeStatus | "all")
               setCurrentPage(1)
             }}>
               <SelectTrigger className="bg-background">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos</SelectItem>
+                <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="active">Ativos</SelectItem>
                 <SelectItem value="inactive">Inativos</SelectItem>
                 <SelectItem value="training">Em treinamento</SelectItem>

@@ -76,12 +76,12 @@ export default function ModalidadesPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [perPage, setPerPage] = useState(9)
-  const [categoria, setCategoria] = useState<string>("")
+  const [categoria, setCategoria] = useState<string>("all")
   const [categorias, setCategorias] = useState<string[]>([])
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState('')
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
   const [viewType, setViewType] = useState<string>('grid')
 
   // Lista de categorias únicas das modalidades
@@ -105,7 +105,7 @@ export default function ModalidadesPage() {
         sort_dir: 'asc'
       }
 
-      if (statusFilter) {
+      if (statusFilter && statusFilter !== 'all') {
         params.is_active = statusFilter === 'active'
       }
       
@@ -183,14 +183,14 @@ export default function ModalidadesPage() {
     if (page) setCurrentPage(parseInt(page))
     if (search) setSearchTerm(search)
     if (category) setCategoria(category || 'all')
-    if (status) setStatusFilter(status)
+    if (status) setStatusFilter(status || 'all')
   }, [searchParams])
 
   // Limpar pesquisa e resetar para primeira página
   const handleClearSearch = () => {
     setSearchTerm("")
     setCategoria("all")
-    setStatusFilter("")
+    setStatusFilter("all")
     setCurrentPage(1)
   }
 
@@ -199,7 +199,9 @@ export default function ModalidadesPage() {
     setCurrentPage(page)
   }
 
-  const temFiltrosAtivos = debouncedSearchTerm || (categoria && categoria !== 'all') || statusFilter
+  const temFiltrosAtivos = debouncedSearchTerm || 
+                          (categoria && categoria !== 'all') || 
+                          (statusFilter && statusFilter !== 'all')
 
   if (loading && modalidades.length === 0) {
     return <CarregandoModalidades />
@@ -261,7 +263,7 @@ export default function ModalidadesPage() {
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos</SelectItem>
+                <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="active">Ativas</SelectItem>
                 <SelectItem value="inactive">Inativas</SelectItem>
               </SelectContent>

@@ -10,8 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Calendar, Plus, Search, LineChart, Activity, ClipboardList } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { avaliacoesService, atletasService } from "@/services/api"
-import { AvaliacaoFrontend, Atleta, ApiResponse } from "@/types"
+import { avaliacoesService } from "@/services/avaliacoes.service"
+import { atletasService } from "@/services/atletas.service"
+import { AvaliacaoFrontend } from "@/types/avaliacao"
+import { Atleta } from "@/types/atleta"
 
 export default function DesempenhoPage() {
   const [searchTerm, setSearchTerm] = useState("")
@@ -28,13 +30,13 @@ export default function DesempenhoPage() {
       setIsLoading(true)
       try {
         // Carregar avaliações
-        const avaliacoesData = await avaliacoesService.listarFormatoFrontend();
+        const avaliacoesData = await avaliacoesService.listar();
         setAvaliacoes(avaliacoesData);
 
         // Carregar atletas
         const atletasResponse = await atletasService.listar();
-        if (atletasResponse && atletasResponse.data) {
-          setAtletas(atletasResponse.data);
+        if (atletasResponse) {
+          setAtletas(atletasResponse as unknown as Atleta[]);
         }
       } catch (error) {
         console.error("Erro ao carregar dados:", error);
