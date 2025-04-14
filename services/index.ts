@@ -6,6 +6,7 @@ import { notificacoesService } from './notificacoes.service'
 import { modalidadesService } from './modalidades.service'
 import { espacosService } from './espacos.service'
 import { projetosService } from './projetos.service'
+import { dashboardService } from './dashboards.service'
 
 export {
   authService,
@@ -15,5 +16,6 @@ export {
   notificacoesService,
   modalidadesService,
   espacosService,
-  projetosService
+  projetosService,
+  dashboardService
 } 

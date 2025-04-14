@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -25,9 +25,11 @@ interface FormData {
   is_active: boolean;
 }
 
-export default function NovoEspacoPage() {
+export default function EditarEspacoPage() {
+  const params = useParams()
   const router = useRouter()
   const { toast } = useToast()
+  const id = params.id as string
 
   const [formData, setFormData] = useState<FormData>({
     name: "",
@@ -41,9 +43,49 @@ export default function NovoEspacoPage() {
 
   const [imagens, setImagens] = useState<File[]>([])
   const [imagesPreviews, setImagesPreviews] = useState<string[]>([])
+  const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [tipos, setTipos] = useState<string[]>([])
   const [isLoadingTipos, setIsLoadingTipos] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // Carregar dados do espaço
+  const carregarEspaco = useCallback(async () => {
+    if (!id) return
+
+    try {
+      setIsLoading(true)
+      const espacoData = await espacosService.obter(id)
+      
+      if (espacoData) {
+        setFormData({
+          name: espacoData.name || "",
+          type: espacoData.type || "",
+          capacity: espacoData.capacity ? String(espacoData.capacity) : "",
+          location: espacoData.location || "",
+          description: espacoData.description || "",
+          resources: [""], // O backend atual não suporta recursos
+          is_active: espacoData.is_active !== undefined ? Boolean(espacoData.is_active) : true
+        })
+
+        if (espacoData.image_url) {
+          setOriginalImageUrl(espacoData.image_url)
+          setImagesPreviews([espacoData.image_url])
+        }
+      }
+    } catch (error) {
+      console.error("Erro ao carregar dados do espaço:", error)
+      setError("Não foi possível carregar os dados do espaço.")
+      toast({
+        title: "Erro ao carregar dados",
+        description: "Não foi possível carregar os dados do espaço. Tente novamente mais tarde.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }, [id, toast])
 
   // Carregar tipos de espaços disponíveis
   const carregarTipos = useCallback(async () => {
@@ -65,8 +107,9 @@ export default function NovoEspacoPage() {
   }, [toast])
 
   useEffect(() => {
+    carregarEspaco()
     carregarTipos()
-  }, [carregarTipos])
+  }, [carregarEspaco, carregarTipos])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -115,13 +158,30 @@ export default function NovoEspacoPage() {
       newPreviews.push(URL.createObjectURL(file))
     }
 
-    setImagens([...imagens, ...newImages])
-    setImagesPreviews([...imagesPreviews, ...newPreviews])
+    // Limpa a imagem anterior ao adicionar novas
+    if (newImages.length > 0) {
+      setImagens(newImages)
+      setImagesPreviews(newPreviews)
+      setOriginalImageUrl(null)
+    }
   }
 
   const removeImagem = (index: number) => {
-    // Revoke object URL to avoid memory leaks
-    URL.revokeObjectURL(imagesPreviews[index])
+    // Se é a imagem original, limpa completamente
+    if (index === 0 && originalImageUrl && imagesPreviews.length === 1) {
+      setOriginalImageUrl(null)
+      setImagesPreviews([])
+      setImagens([])
+      return
+    }
+    
+    // Caso contrário, remove apenas a imagem específica
+    if (imagesPreviews[index]) {
+      // Revoke object URL para evitar memory leaks (apenas se não for a URL original)
+      if (!originalImageUrl || originalImageUrl !== imagesPreviews[index]) {
+        URL.revokeObjectURL(imagesPreviews[index])
+      }
+    }
     
     const newImagens = [...imagens]
     const newPreviews = [...imagesPreviews]
@@ -171,26 +231,29 @@ export default function NovoEspacoPage() {
         is_active: formData.is_active
       }
 
-      // Se houver imagens, fazer o upload e adicionar a URL da primeira como image_url
+      // Se houver imagens novas, fazer o upload e adicionar a URL da primeira como image_url
       if (imagens.length > 0) {
         const imageUrls = await uploadImages()
         dadosEnvio.image_url = imageUrls[0] // Usa a primeira imagem como principal
+      } else if (originalImageUrl === null) {
+        // Se a imagem original foi removida e não foi adicionada uma nova, limpa o campo
+        dadosEnvio.image_url = undefined
       }
 
       // Enviar para a API
-      const novoEspaco = await espacosService.criar(dadosEnvio)
+      const espacoAtualizado = await espacosService.atualizar(id, dadosEnvio)
       
       toast({
-        title: "Espaço criado com sucesso",
-        description: "O novo espaço foi adicionado ao sistema.",
+        title: "Espaço atualizado com sucesso",
+        description: "As alterações foram salvas com sucesso.",
       })
       
-      // Redirecionar para a página de espaços
-      router.push("/dashboard/espacos")
+      // Redirecionar para a página de detalhes do espaço
+      router.push(`/dashboard/espacos/${id}`)
     } catch (error) {
-      console.error("Erro ao criar espaço:", error)
+      console.error("Erro ao atualizar espaço:", error)
       toast({
-        title: "Erro ao criar espaço",
+        title: "Erro ao atualizar espaço",
         description: "Ocorreu um erro ao salvar os dados. Tente novamente.",
         variant: "destructive",
       })
@@ -199,15 +262,34 @@ export default function NovoEspacoPage() {
     }
   }
 
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[50vh]">
+        <Loader2 className="h-8 w-8 animate-spin mb-4 text-green-700" />
+        <p className="text-muted-foreground">Carregando dados do espaço...</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[50vh]">
+        <h2 className="text-2xl font-bold">Erro ao carregar dados</h2>
+        <p className="text-muted-foreground mb-4">{error}</p>
+        <Button onClick={() => router.push("/dashboard/espacos")}>Voltar para lista de espaços</Button>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
         <Button variant="outline" size="icon" asChild>
-          <Link href="/dashboard/espacos">
+          <Link href={`/dashboard/espacos/${id}`}>
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>
-        <h1 className="text-3xl font-bold tracking-tight">Novo Espaço</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Editar Espaço</h1>
       </div>
 
       <form onSubmit={handleSubmit}>
@@ -215,7 +297,7 @@ export default function NovoEspacoPage() {
           <Card className="lg:col-span-1">
             <CardHeader>
               <CardTitle>Informações Básicas</CardTitle>
-              <CardDescription>Preencha as informações básicas do espaço</CardDescription>
+              <CardDescription>Atualize as informações básicas do espaço</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -303,7 +385,7 @@ export default function NovoEspacoPage() {
           <Card className="lg:col-span-1">
             <CardHeader>
               <CardTitle>Detalhes Adicionais</CardTitle>
-              <CardDescription>Forneça mais informações sobre o espaço</CardDescription>
+              <CardDescription>Atualize mais informações sobre o espaço</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -349,7 +431,7 @@ export default function NovoEspacoPage() {
           <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle>Imagens do Espaço</CardTitle>
-              <CardDescription>Adicione fotos do espaço para melhor visualização</CardDescription>
+              <CardDescription>Atualize as fotos do espaço para melhor visualização</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -386,7 +468,7 @@ export default function NovoEspacoPage() {
         </div>
 
         <div className="mt-6 flex justify-end gap-4">
-          <Button variant="outline" type="button" onClick={() => router.push("/dashboard/espacos")}>
+          <Button variant="outline" type="button" onClick={() => router.push(`/dashboard/espacos/${id}`)}>
             Cancelar
           </Button>
           <Button type="submit" className="bg-green-700 hover:bg-green-600" disabled={isSubmitting}>
@@ -395,10 +477,10 @@ export default function NovoEspacoPage() {
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Salvando...
               </>
-            ) : "Salvar Espaço"}
+            ) : "Salvar Alterações"}
           </Button>
         </div>
       </form>
     </div>
   )
-}
+} 

@@ -14,12 +14,18 @@ export function EspacoGaleria({ imagens, nome }: EspacoGaleriaProps) {
   const [imagemAtual, setImagemAtual] = useState(0)
   const [modoGaleria, setModoGaleria] = useState(false)
 
+  // Garantir que sempre temos pelo menos uma imagem
+  const imagensSeguras = imagens && imagens.length > 0 ? imagens : ["/placeholder.svg"]
+  const temVariasImagens = imagensSeguras.length > 1
+  
   const proximaImagem = () => {
-    setImagemAtual((prev) => (prev === imagens.length - 1 ? 0 : prev + 1))
+    if (!temVariasImagens) return
+    setImagemAtual((prev) => (prev === imagensSeguras.length - 1 ? 0 : prev + 1))
   }
 
   const imagemAnterior = () => {
-    setImagemAtual((prev) => (prev === 0 ? imagens.length - 1 : prev - 1))
+    if (!temVariasImagens) return
+    setImagemAtual((prev) => (prev === 0 ? imagensSeguras.length - 1 : prev - 1))
   }
 
   const abrirGaleria = (index: number) => {
@@ -36,13 +42,13 @@ export function EspacoGaleria({ imagens, nome }: EspacoGaleriaProps) {
       <div className="relative">
         <div className="aspect-video w-full overflow-hidden">
           <img
-            src={imagens[imagemAtual] || "/placeholder.svg"}
+            src={imagensSeguras[imagemAtual] || "/placeholder.svg"}
             alt={`${nome} - Imagem ${imagemAtual + 1}`}
             className="w-full h-full object-cover"
           />
         </div>
 
-        {imagens.length > 1 && (
+        {temVariasImagens && (
           <>
             <Button
               variant="outline"
@@ -64,24 +70,26 @@ export function EspacoGaleria({ imagens, nome }: EspacoGaleriaProps) {
         )}
       </div>
 
-      <div className="grid grid-cols-5 gap-2 mt-2">
-        {imagens.map((imagem, index) => (
-          <div
-            key={index}
-            className={cn(
-              "aspect-video cursor-pointer rounded-md overflow-hidden",
-              imagemAtual === index ? "ring-2 ring-green-700" : "",
-            )}
-            onClick={() => abrirGaleria(index)}
-          >
-            <img
-              src={imagem || "/placeholder.svg"}
-              alt={`${nome} - Miniatura ${index + 1}`}
-              className="w-full h-full object-cover"
-            />
-          </div>
-        ))}
-      </div>
+      {temVariasImagens && (
+        <div className="grid grid-cols-5 gap-2 mt-2">
+          {imagensSeguras.map((imagem, index) => (
+            <div
+              key={index}
+              className={cn(
+                "aspect-video cursor-pointer rounded-md overflow-hidden",
+                imagemAtual === index ? "ring-2 ring-green-700" : "",
+              )}
+              onClick={() => abrirGaleria(index)}
+            >
+              <img
+                src={imagem || "/placeholder.svg"}
+                alt={`${nome} - Miniatura ${index + 1}`}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          ))}
+        </div>
+      )}
 
       {modoGaleria && (
         <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center">
@@ -96,12 +104,12 @@ export function EspacoGaleria({ imagens, nome }: EspacoGaleriaProps) {
 
           <div className="relative max-w-4xl w-full">
             <img
-              src={imagens[imagemAtual] || "/placeholder.svg"}
+              src={imagensSeguras[imagemAtual] || "/placeholder.svg"}
               alt={`${nome} - Imagem ${imagemAtual + 1}`}
               className="w-full h-auto max-h-[80vh] object-contain"
             />
 
-            {imagens.length > 1 && (
+            {temVariasImagens && (
               <>
                 <Button
                   variant="outline"
@@ -123,7 +131,7 @@ export function EspacoGaleria({ imagens, nome }: EspacoGaleriaProps) {
             )}
 
             <div className="text-center text-white mt-4">
-              {imagemAtual + 1} / {imagens.length}
+              {imagemAtual + 1} / {imagensSeguras.length}
             </div>
           </div>
         </div>
